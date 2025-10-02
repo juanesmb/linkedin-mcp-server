@@ -1,21 +1,56 @@
 package main
 
 import (
-  "fmt"
+	"context"
+	"fmt"
+	"log"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-//TIP <p>To run your code, right-click the code and select <b>Run</b>.</p> <p>Alternatively, click
-// the <icon src="AllIcons.Actions.Execute"/> icon in the gutter and select the <b>Run</b> menu item from here.</p>
+type SayHiParams struct {
+	Name string `json:"name"`
+}
+
+func SayHi(ctx context.Context, req *mcp.CallToolRequest, args SayHiParams) (*mcp.CallToolResult, any, error) {
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: "Hi " + args.Name},
+		},
+	}, nil, nil
+}
 
 func main() {
-  //TIP <p>Press <shortcut actionId="ShowIntentionActions"/> when your caret is at the underlined text
-  // to see how GoLand suggests fixing the warning.</p><p>Alternatively, if available, click the lightbulb to view possible fixes.</p>
-  s := "gopher"
-  fmt.Printf("Hello and welcome, %s!\n", s)
+	ctx := context.Background()
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
 
-  for i := 1; i <= 5; i++ {
-	//TIP <p>To start your debugging session, right-click your code in the editor and select the Debug option.</p> <p>We have set one <icon src="AllIcons.Debugger.Db_set_breakpoint"/> breakpoint
-	// for you, but you can always add more by pressing <shortcut actionId="ToggleLineBreakpoint"/>.</p>
-	fmt.Println("i =", 100/i)
-  }
+	server := mcp.NewServer(&mcp.Implementation{Name: "greeter", Version: "v0.0.1"}, nil)
+	mcp.AddTool(server, &mcp.Tool{Name: "greet", Description: "say hi"}, SayHi)
+
+	serverSession, err := server.Connect(ctx, serverTransport, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	/////////////////////////////////////////
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "client"}, nil)
+	clientSession, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	res, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "greet",
+		Arguments: map[string]any{"name": "user"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(res.Content[0].(*mcp.TextContent).Text)
+
+	clientSession.Close()
+	serverSession.Wait()
+
+	// Output: Hi user
 }
