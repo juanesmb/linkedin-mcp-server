@@ -1,15 +1,24 @@
 package app
 
 import (
+	"context"
 	"log"
-	"net/http"
 
-	"linkedin-mcp/internal/infrastructure/middleware"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-const port = ":8080"
-
 func Start() {
+	configs := readConfigs()
+
+	server := initServer(configs)
+
+	err := server.Run(context.Background(), &mcp.StdioTransport{})
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+/*func Start() {
 	configs := readConfigs()
 
 	handler := initServer(configs)
@@ -23,21 +32,4 @@ func Start() {
 	if err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
-}
-
-/* Config to start an MCP server using STDIO communication protocol
-	func Start() {
-	// Create a server
-	server := mcp.NewServer(&mcp.Implementation{Name: "LinkedIn", Version: "v1.0.0"}, nil)
-
-	// Add tools
-	// mcp.AddTool(server, &mcp.Tool{Name: "greet", Description: "say hi"}, greeter.SayHi)
-	mcp.AddTool(server, &mcp.Tool{Name: "search_campaigns", Description: "Search for LinkedIn ad campaigns"}, searchcampaigns.SearchCampaigns)
-
-	// Run the server over stdin/stdout, until the client disconnects.
-	err := server.Run(context.Background(), &mcp.StdioTransport{})
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-*/
+}*/

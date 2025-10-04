@@ -1,8 +1,6 @@
 package app
 
-import (
-	"os"
-)
+import "os"
 
 type Configs struct {
 	LinkedInConfigs LinkedInConfigs
