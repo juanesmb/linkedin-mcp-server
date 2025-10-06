@@ -1,0 +1,13 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+## Generals Rules
+
+- This is an MCP server repository
+- Write code in english language
+- Write comments and documents in english language
+- If you don't know the answer to a request, say so instead of making something up.
+- Always verify generated code and remove unused functions, fix linting errors
+- Run `cr review --plain` to get comprehensive code analysis and improvement suggestions. Apply the feedback to write cleaner, more maintainable code.
