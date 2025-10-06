@@ -1,6 +1,8 @@
 package app
 
 import (
+	"linkedin-mcp/internal/infrastructure/api/campaigns"
+	"linkedin-mcp/internal/infrastructure/http"
 	"linkedin-mcp/internal/infrastructure/tools/searchcampaigns"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -17,6 +19,15 @@ func initServer(configs Configs) *mcp.Server {
 }
 
 func initSearchCampaignsTool(configs Configs) *searchcampaigns.Tool {
-	return searchcampaigns.NewTool(configs.LinkedInConfigs.AccessToken, configs.LinkedInConfigs.AccountID,
-		configs.LinkedInConfigs.BaseURL, configs.LinkedInConfigs.Version)
+	httpClient := http.NewClient(nil)
+
+	queryBuilder := campaigns.NewQueryBuilder(configs.LinkedInConfigs.BaseURL,
+		configs.LinkedInConfigs.AccountID,
+		configs.LinkedInConfigs.Version,
+		configs.LinkedInConfigs.AccessToken,
+	)
+
+	campaignsRepository := campaigns.NewRepository(httpClient, queryBuilder)
+
+	return searchcampaigns.NewTool(campaignsRepository)
 }
