@@ -90,52 +90,56 @@ func (t *Tool) SearchCampaigns(ctx context.Context, req *mcp.CallToolRequest, in
 }
 
 func makeQueryParams(input dto.Input) string {
-	q := url.Values{}
-	q.Set("q", "search")
+	// Build query parameters manually to avoid double-encoding the search parameter
+	var params []string
 
-	// Arrays -> repeated query params with the same key
-	for _, v := range input.CampaignGroupURNs {
-		if v != "" {
-			q.Add("search.campaignGroup.values", v)
+	// Always include q=search
+	params = append(params, "q=search")
+
+	// Build single Rest.li-style composite search parameter, e.g.:
+	// search=(type:(values:List(SPONSORED_UPDATES)),status:(values:List(ACTIVE)))
+	var searchParts []string
+
+	addList := func(field string, values []string) {
+		cleaned := make([]string, 0, len(values))
+		for _, v := range values {
+			if v == "" {
+				continue
+			}
+			cleaned = append(cleaned, v)
 		}
-	}
-	for _, v := range input.AssociatedEntityValues {
-		if v != "" {
-			q.Add("search.associatedEntity.values", v)
+		if len(cleaned) == 0 {
+			return
 		}
-	}
-	for _, v := range input.CampaignURNs {
-		if v != "" {
-			q.Add("search.id.values", v)
-		}
-	}
-	for _, v := range input.Status {
-		if v != "" {
-			q.Add("search.status.values", v)
-		}
-	}
-	for _, v := range input.Type {
-		if v != "" {
-			q.Add("search.type.values", v)
-		}
-	}
-	for _, v := range input.Name {
-		if v != "" {
-			q.Add("search.name.values", v)
-		}
+		searchParts = append(searchParts, fmt.Sprintf("%s:(values:List(%s))", field, strings.Join(cleaned, ",")))
 	}
 
-	// Note: LinkedIn adCampaigns search does not support a test flag; ignore input.Test
+	addList("campaignGroup", input.CampaignGroupURNs)
+	addList("associatedEntity", input.AssociatedEntityValues)
+	addList("id", input.CampaignURNs)
+	addList("status", input.Status)
+	addList("type", input.Type)
+	addList("name", input.Name)
+
+	if input.Test != nil {
+		searchParts = append(searchParts, fmt.Sprintf("test:%t", *input.Test))
+	}
+
+	if len(searchParts) > 0 {
+		// Build the search parameter without URL encoding the Rest.li syntax
+		searchParam := fmt.Sprintf("search=(%s)", strings.Join(searchParts, ","))
+		params = append(params, searchParam)
+	}
 
 	if input.SortOrder != "" {
-		q.Set("sortOrder", input.SortOrder)
+		params = append(params, fmt.Sprintf("sortOrder=%s", url.QueryEscape(input.SortOrder)))
 	}
 	if input.PageSize > 0 {
-		q.Set("pageSize", fmt.Sprintf("%d", input.PageSize))
+		params = append(params, fmt.Sprintf("pageSize=%d", input.PageSize))
 	}
 	if input.PageToken != "" {
-		q.Set("pageToken", input.PageToken)
+		params = append(params, fmt.Sprintf("pageToken=%s", url.QueryEscape(input.PageToken)))
 	}
 
-	return q.Encode()
+	return strings.Join(params, "&")
 }
