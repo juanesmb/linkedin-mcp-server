@@ -10,5 +10,5 @@ type Input struct {
 	Test                   *bool    `json:"test,omitempty" jsonschema:"Filter by test campaigns: true or false (both if omitted)"`
 	SortOrder              string   `json:"sortOrder" jsonschema:"Sort by campaign ID: ASCENDING or DESCENDING (default ASCENDING)"`
 	PageSize               int      `json:"pageSize" jsonschema:"Results per page (1-1000). Default 100"`
-	PageToken              string   `json:"pageToken" jsonschema:"Opaque cursor for pagination"`
+	PageToken              *string  `json:"pageToken,omitempty" jsonschema:"Opaque cursor for pagination"`
 }

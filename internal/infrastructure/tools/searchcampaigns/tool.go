@@ -104,6 +104,11 @@ func (t *Tool) validateInput(input dto.Input) error {
 }
 
 func (t *Tool) convertInput(input dto.Input) campaigns.SearchInput {
+	var pageToken string
+	if input.PageToken != nil {
+		pageToken = *input.PageToken
+	}
+
 	return campaigns.SearchInput{
 		CampaignGroupURNs:      input.CampaignGroupURNs,
 		AssociatedEntityValues: input.AssociatedEntityValues,
@@ -114,6 +119,6 @@ func (t *Tool) convertInput(input dto.Input) campaigns.SearchInput {
 		Test:                   input.Test,
 		SortOrder:              input.SortOrder,
 		PageSize:               input.PageSize,
-		PageToken:              input.PageToken,
+		PageToken:              pageToken,
 	}
 }
