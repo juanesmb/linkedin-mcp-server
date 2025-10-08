@@ -8,15 +8,13 @@ import (
 
 type QueryBuilder struct {
 	baseURL     string
-	accountID   string
 	version     string
 	accessToken string
 }
 
-func NewQueryBuilder(baseURL, accountID, version, accessToken string) *QueryBuilder {
+func NewQueryBuilder(baseURL, version, accessToken string) *QueryBuilder {
 	return &QueryBuilder{
 		baseURL:     baseURL,
-		accountID:   accountID,
 		version:     version,
 		accessToken: accessToken,
 	}
@@ -84,6 +82,10 @@ func (qb *QueryBuilder) buildQueryParams(input AnalyticsInput) string {
 	}
 
 	// Facets - at least one is required (accounts come before pivot in the example)
+	// Always include the account from AccountID input
+	accountURN := fmt.Sprintf("urn:li:sponsoredAccount:%s", input.AccountID)
+	params = append(params, fmt.Sprintf("accounts=List(%s)", url.QueryEscape(accountURN)))
+
 	if len(input.Shares) > 0 {
 		sharesList := qb.buildListParam(input.Shares)
 		params = append(params, fmt.Sprintf("shares=List(%s)", sharesList))

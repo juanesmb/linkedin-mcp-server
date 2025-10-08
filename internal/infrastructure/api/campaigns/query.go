@@ -1,6 +1,7 @@
 package campaigns
 
 type SearchInput struct {
+	AccountID              string
 	CampaignGroupURNs      []string
 	AssociatedEntityValues []string
 	CampaignURNs           []string

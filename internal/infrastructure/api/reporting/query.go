@@ -1,6 +1,7 @@
 package reporting
 
 type AnalyticsInput struct {
+	AccountID       string    `json:"accountID"`
 	Pivot           string    `json:"pivot,omitempty"`
 	DateRange       DateRange `json:"dateRange"`
 	TimeGranularity string    `json:"timeGranularity"`

@@ -1,6 +1,7 @@
 package dto
 
 type Input struct {
+	AccountID              string   `json:"accountID" jsonschema:"LinkedIn Ad Account ID (numeric value, e.g., 512345678)"`
 	CampaignGroupURNs      []string `json:"campaignGroupURNs" jsonschema:"Filter by Campaign Group URNs (urn:li:sponsoredCampaignGroup:{id})"`
 	AssociatedEntityValues []string `json:"associatedEntityValues" jsonschema:"Filter by associated entity"`
 	CampaignURNs           []string `json:"campaignURNs" jsonschema:"Filter by Campaign URNs (urn:li:sponsoredCampaign:{id})"`

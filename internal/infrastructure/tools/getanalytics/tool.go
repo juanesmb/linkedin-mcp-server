@@ -41,6 +41,15 @@ func (t *Tool) GetAnalytics(ctx context.Context, req *mcp.CallToolRequest, input
 }
 
 func (t *Tool) validateInput(input dto.Input) error {
+	// Validate AccountID
+	if input.AccountID == "" {
+		return fmt.Errorf("accountID is required")
+	}
+	input.AccountID = strings.TrimSpace(input.AccountID)
+	if input.AccountID == "" {
+		return fmt.Errorf("accountID cannot be empty or whitespace only")
+	}
+
 	// Validate required fields
 	if input.DateRangeStart.Year == 0 {
 		return fmt.Errorf("dateRangeStart is required")
@@ -131,12 +140,7 @@ func (t *Tool) validateInput(input dto.Input) error {
 		}
 	}
 
-	// Validate that at least one facet is provided
-	hasFacets := len(input.Shares) > 0 || len(input.Campaigns) > 0 ||
-		len(input.CampaignGroups) > 0 || len(input.Accounts) > 0 || len(input.Companies) > 0
-	if !hasFacets {
-		return fmt.Errorf("at least one facet must be provided: shares, campaigns, campaignGroups, accounts, or companies")
-	}
+	// Note: AccountID is always provided as the accounts facet, so no need to validate additional facets
 
 	// Sanitize string inputs
 	for i, share := range input.Shares {
@@ -179,6 +183,7 @@ func (t *Tool) convertInput(input dto.Input) reporting.AnalyticsInput {
 	}
 
 	return reporting.AnalyticsInput{
+		AccountID:       input.AccountID,
 		Pivot:           input.Pivot,
 		DateRange:       dateRange,
 		TimeGranularity: input.TimeGranularity,

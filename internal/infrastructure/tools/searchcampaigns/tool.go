@@ -46,6 +46,15 @@ func (t *Tool) SearchCampaigns(ctx context.Context, req *mcp.CallToolRequest, in
 }
 
 func (t *Tool) validateInput(input dto.Input) error {
+	// Validate AccountID
+	if input.AccountID == "" {
+		return fmt.Errorf("accountID is required")
+	}
+	input.AccountID = strings.TrimSpace(input.AccountID)
+	if input.AccountID == "" {
+		return fmt.Errorf("accountID cannot be empty or whitespace only")
+	}
+
 	// Validate page size
 	if input.PageSize < 0 {
 		return fmt.Errorf("pageSize must be non-negative")
@@ -110,6 +119,7 @@ func (t *Tool) convertInput(input dto.Input) campaigns.SearchInput {
 	}
 
 	return campaigns.SearchInput{
+		AccountID:              input.AccountID,
 		CampaignGroupURNs:      input.CampaignGroupURNs,
 		AssociatedEntityValues: input.AssociatedEntityValues,
 		CampaignURNs:           input.CampaignURNs,

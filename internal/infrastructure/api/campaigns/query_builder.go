@@ -8,22 +8,20 @@ import (
 
 type QueryBuilder struct {
 	baseURL     string
-	accountID   string
 	version     string
 	accessToken string
 }
 
-func NewQueryBuilder(baseURL, accountID, version, accessToken string) *QueryBuilder {
+func NewQueryBuilder(baseURL, version, accessToken string) *QueryBuilder {
 	return &QueryBuilder{
 		baseURL:     baseURL,
-		accountID:   accountID,
 		version:     version,
 		accessToken: accessToken,
 	}
 }
 
 func (qb *QueryBuilder) BuildSearchCampaignsQuery(input SearchInput) (string, map[string]string) {
-	endpoint := fmt.Sprintf("%s/adAccounts/%s/adCampaigns", strings.TrimRight(qb.baseURL, "/"), url.PathEscape(qb.accountID))
+	endpoint := fmt.Sprintf("%s/adAccounts/%s/adCampaigns", strings.TrimRight(qb.baseURL, "/"), url.PathEscape(input.AccountID))
 	queryParams := qb.buildQueryParams(input)
 	fullURL := endpoint + "?" + queryParams
 

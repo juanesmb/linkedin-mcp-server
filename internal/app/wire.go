@@ -4,6 +4,7 @@ import (
 	"linkedin-mcp/internal/infrastructure/api/campaigns"
 	reportingapi "linkedin-mcp/internal/infrastructure/api/reporting"
 	"linkedin-mcp/internal/infrastructure/http"
+	"linkedin-mcp/internal/infrastructure/prompts/accountid"
 	"linkedin-mcp/internal/infrastructure/resources/analytics/metrics"
 	"linkedin-mcp/internal/infrastructure/resources/analytics/queryparameters"
 	"linkedin-mcp/internal/infrastructure/tools/getanalytics"
@@ -13,15 +14,24 @@ import (
 )
 
 func initServer(configs Configs) *mcp.Server {
-	server := mcp.NewServer(&mcp.Implementation{Name: "LinkedIn", Version: "v1.0.0"}, nil)
+	server := mcp.NewServer(&mcp.Implementation{
+		Name:    "LinkedIn",
+		Version: "v1.0.0",
+		Title:   "LinkedIn Advertising MCP server. Use 'linkedin_account_id_required' prompt first",
+	}, nil)
 
 	searchCampaignsTool := initSearchCampaignsTool(configs)
 	reportingTool := initReportingTool(configs)
 
-	mcp.AddTool(server, &mcp.Tool{Name: "search_campaigns", Description: "Search for LinkedIn ad campaigns"}, searchCampaignsTool.SearchCampaigns)
-	mcp.AddTool(server, &mcp.Tool{Name: "get_analytics", Description: "Get LinkedIn ad analytics and getanalytics data"}, reportingTool.GetAnalytics)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "search_campaigns",
+		Description: "Search for LinkedIn ad campaigns. REQUIRES: Use 'linkedin_account_id_required' prompt first to get Account ID from user.",
+	}, searchCampaignsTool.SearchCampaigns)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_analytics",
+		Description: "Get LinkedIn ad analytics data. REQUIRES: Use 'linkedin_account_id_required' prompt first to get Account ID from user.",
+	}, reportingTool.GetAnalytics)
 
-	// Initialize and register the analytics parameters resource
 	analyticsResource := initAnalyticsResource()
 	server.AddResource(&mcp.Resource{
 		URI:         "linkedin://analytics/parameters",
@@ -30,7 +40,6 @@ func initServer(configs Configs) *mcp.Server {
 		MIMEType:    "application/json",
 	}, analyticsResource.ReadResource)
 
-	// Initialize and register the analytics metrics resource
 	analyticsMetricsResource := initAnalyticsMetricsResource()
 	server.AddResource(&mcp.Resource{
 		URI:         "linkedin://analytics/metrics",
@@ -39,6 +48,19 @@ func initServer(configs Configs) *mcp.Server {
 		MIMEType:    "application/json",
 	}, analyticsMetricsResource.ReadResource)
 
+	accountIDPrompt := initAccountIDPrompt()
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "linkedin_account_id_required",
+		Description: "Instructions to request LinkedIn Account ID before using tools",
+		Arguments: []*mcp.PromptArgument{
+			{
+				Name:        "accountID",
+				Description: "The LinkedIn Ad Account ID provided by the user",
+				Required:    true,
+			},
+		},
+	}, accountIDPrompt.GetPrompt)
+
 	return server
 }
 
@@ -46,7 +68,6 @@ func initSearchCampaignsTool(configs Configs) *searchcampaigns.Tool {
 	httpClient := http.NewClient(nil)
 
 	queryBuilder := campaigns.NewQueryBuilder(configs.LinkedInConfigs.BaseURL,
-		configs.LinkedInConfigs.AccountID,
 		configs.LinkedInConfigs.Version,
 		configs.LinkedInConfigs.AccessToken,
 	)
@@ -60,7 +81,6 @@ func initReportingTool(configs Configs) *getanalytics.Tool {
 	httpClient := http.NewClient(nil)
 
 	queryBuilder := reportingapi.NewQueryBuilder(configs.LinkedInConfigs.BaseURL,
-		configs.LinkedInConfigs.AccountID,
 		configs.LinkedInConfigs.Version,
 		configs.LinkedInConfigs.AccessToken,
 	)
@@ -76,4 +96,8 @@ func initAnalyticsResource() *queryparameters.Resource {
 
 func initAnalyticsMetricsResource() *metrics.Resource {
 	return metrics.NewResource()
+}
+
+func initAccountIDPrompt() *accountid.Prompt {
+	return accountid.NewPrompt()
 }
