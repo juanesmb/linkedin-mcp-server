@@ -5,6 +5,7 @@ import (
 	reportingapi "linkedin-mcp/internal/infrastructure/api/reporting"
 	"linkedin-mcp/internal/infrastructure/http"
 	"linkedin-mcp/internal/infrastructure/prompts/accountid"
+	"linkedin-mcp/internal/infrastructure/prompts/systemguidelines"
 	"linkedin-mcp/internal/infrastructure/resources/analytics/metrics"
 	"linkedin-mcp/internal/infrastructure/resources/analytics/queryparameters"
 	"linkedin-mcp/internal/infrastructure/tools/getanalytics"
@@ -17,20 +18,17 @@ func initServer(configs Configs) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "LinkedIn",
 		Version: "v1.0.0",
-		Title:   "LinkedIn Advertising MCP server. Use 'linkedin_account_id_required' prompt first",
+		Title:   "LinkedIn Advertising MCP server. Use 'system_guidelines' prompt first.",
 	}, nil)
-
-	searchCampaignsTool := initSearchCampaignsTool(configs)
-	reportingTool := initReportingTool(configs)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "search_campaigns",
-		Description: "Search for LinkedIn ad campaigns. REQUIRES: Use 'linkedin_account_id_required' prompt first to get Account ID from user.",
-	}, searchCampaignsTool.SearchCampaigns)
+		Description: "Search for LinkedIn ad campaigns. REQUIRES: Use 'system_guidelines' prompt first.",
+	}, initSearchCampaignsTool(configs).SearchCampaigns)
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_analytics",
-		Description: "Get LinkedIn ad analytics data. REQUIRES: Use 'linkedin_account_id_required' prompt first to get Account ID from user.",
-	}, reportingTool.GetAnalytics)
+		Description: "Get LinkedIn ad analytics data. REQUIRES: Use 'system_guidelines' prompt first.",
+	}, initReportingTool(configs).GetAnalytics)
 
 	analyticsResource := initAnalyticsResource()
 	server.AddResource(&mcp.Resource{
@@ -47,6 +45,13 @@ func initServer(configs Configs) *mcp.Server {
 		Description: "JSON schema containing LinkedIn analytics API metrics and their descriptions",
 		MIMEType:    "application/json",
 	}, analyticsMetricsResource.ReadResource)
+
+	systemGuidelinesPrompt := initSystemGuidelinesPrompt()
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "system_guidelines",
+		Description: "System guidelines for using the LinkedIn MCP server. READ THIS FIRST before using any tools or prompts.",
+		Arguments:   []*mcp.PromptArgument{},
+	}, systemGuidelinesPrompt.GetPrompt)
 
 	accountIDPrompt := initAccountIDPrompt()
 	server.AddPrompt(&mcp.Prompt{
@@ -96,6 +101,10 @@ func initAnalyticsResource() *queryparameters.Resource {
 
 func initAnalyticsMetricsResource() *metrics.Resource {
 	return metrics.NewResource()
+}
+
+func initSystemGuidelinesPrompt() *systemguidelines.Prompt {
+	return systemguidelines.NewPrompt()
 }
 
 func initAccountIDPrompt() *accountid.Prompt {
