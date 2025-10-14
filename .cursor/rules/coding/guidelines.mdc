@@ -7,14 +7,19 @@ alwaysApply: false
 - Read and follow every linked file
 - Inform if you cannot read it because exceeds your context window
 
+## General rules
+- This is an MCP server repository
+- Write code in english language
+- Write comments and documents in english language
+- If you don't know the answer to a request, say so instead of making something up.
+- Always verify generated code and remove unused functions, fix linting errors
+- Run `cr review --plain` to get comprehensive code analysis and improvement suggestions. Apply the feedback to write cleaner, more maintainable code.
+
 ## Golang Standards
 - Follow standards explained here: [go.mdc](mdc:.cursor/rules/coding/go.mdc)
 
 ## Architecture Standards
 - Follow rules explained here: [architecture.mdc](mdc:.cursor/rules/coding/architecture.mdc)
-
-## Rules for testing
-- Follow rules explained here: [testing.mdc](mdc:.cursor/rules/coding/testing.mdc)
 
 ## Rules about security
 - Follow rules explained here: [security.mdc](mdc:.cursor/rules/coding/security.mdc)
