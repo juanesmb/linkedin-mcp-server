@@ -8,11 +8,11 @@ import (
 )
 
 const (
-	accountIDRequestText = `You need to get the user's LinkedIn Ad Account ID before using any LinkedIn tools.
+	accountIDRequestText = `Before using LinkedIn tools that require an account ID (e.g., campaign search or analytics), collect the user's LinkedIn Ad Account ID.
 
 Ask the user concisely: "What is your LinkedIn Ad Account ID? (numeric value, e.g., 512345678)"
 
-Once provided, use it as the 'accountID' parameter for all LinkedIn tools.`
+Once provided, use it as the 'accountID' parameter for those tools. You can still use the ad account discovery tool without one.`
 )
 
 type Prompt struct{}

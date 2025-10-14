@@ -8,17 +8,19 @@ import (
 	"testing"
 	"time"
 
+	"linkedin-mcp/internal/infrastructure/api"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
 
 type HTTPClientSuite struct {
 	suite.Suite
-	client   Client
+	client   api.Client
 	server   *httptest.Server
 	config   *Config
 	ctx      context.Context
-	response *Response
+	response *api.Response
 	err      error
 }
 
@@ -528,7 +530,7 @@ func TestDefaultConfig(t *testing.T) {
 
 // TestResponse tests the Response struct
 func TestResponse(t *testing.T) {
-	response := &Response{
+	response := &api.Response{
 		StatusCode: 200,
 		Headers:    map[string][]string{"Content-Type": {"application/json"}},
 		Body:       []byte("test"),

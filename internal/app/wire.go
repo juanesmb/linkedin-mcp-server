@@ -1,6 +1,7 @@
 package app
 
 import (
+	adaccountsapi "linkedin-mcp/internal/infrastructure/api/adaccounts"
 	"linkedin-mcp/internal/infrastructure/api/campaigns"
 	reportingapi "linkedin-mcp/internal/infrastructure/api/reporting"
 	"linkedin-mcp/internal/infrastructure/http"
@@ -9,6 +10,7 @@ import (
 	"linkedin-mcp/internal/infrastructure/resources/analytics/metrics"
 	"linkedin-mcp/internal/infrastructure/resources/analytics/queryparameters"
 	"linkedin-mcp/internal/infrastructure/tools/getanalytics"
+	"linkedin-mcp/internal/infrastructure/tools/searchadaccounts"
 	"linkedin-mcp/internal/infrastructure/tools/searchcampaigns"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -21,6 +23,10 @@ func initServer(configs Configs) *mcp.Server {
 		Title:   "LinkedIn Advertising MCP server. Use 'system_guidelines' prompt first.",
 	}, nil)
 
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "search_ad_accounts",
+		Description: "Search for LinkedIn ad accounts without needing an ID. REQUIRES: Use 'system_guidelines' prompt first.",
+	}, initSearchAdAccountsTool(configs).SearchAdAccounts)
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "search_campaigns",
 		Description: "Search for LinkedIn ad campaigns. REQUIRES: Use 'system_guidelines' prompt first.",
@@ -80,6 +86,19 @@ func initSearchCampaignsTool(configs Configs) *searchcampaigns.Tool {
 	campaignsRepository := campaigns.NewRepository(httpClient, queryBuilder)
 
 	return searchcampaigns.NewTool(campaignsRepository)
+}
+
+func initSearchAdAccountsTool(configs Configs) *searchadaccounts.Tool {
+	httpClient := http.NewClient(nil)
+
+	queryBuilder := adaccountsapi.NewQueryBuilder(configs.LinkedInConfigs.BaseURL,
+		configs.LinkedInConfigs.Version,
+		configs.LinkedInConfigs.AccessToken,
+	)
+
+	repository := adaccountsapi.NewRepository(httpClient, queryBuilder)
+
+	return searchadaccounts.NewTool(repository)
 }
 
 func initReportingTool(configs Configs) *getanalytics.Tool {
