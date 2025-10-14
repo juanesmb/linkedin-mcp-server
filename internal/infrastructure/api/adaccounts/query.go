@@ -19,12 +19,6 @@ type SearchInput struct {
 	// Names filters by exact ad account names.
 	Names []string
 
-	// SortField orders the results using LinkedIn-supported sort fields (e.g., id, name, createdTime).
-	SortField string
-
-	// SortOrder complements SortField (ASCENDING or DESCENDING).
-	SortOrder string
-
 	// Start controls pagination starting index.
 	Start int
 

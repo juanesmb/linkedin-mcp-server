@@ -92,22 +92,6 @@ func (t *Tool) validateInput(input dto.Input) error {
 		}
 	}
 
-	if input.SortField != "" {
-		validSortFields := map[string]bool{
-			"id":               true,
-			"name":             true,
-			"createdTime":      true,
-			"lastModifiedTime": true,
-		}
-		if !validSortFields[input.SortField] {
-			return fmt.Errorf("invalid sortField: %s", input.SortField)
-		}
-	}
-
-	if input.SortOrder != "" && input.SortOrder != "ASCENDING" && input.SortOrder != "DESCENDING" {
-		return fmt.Errorf("sortOrder must be ASCENDING or DESCENDING")
-	}
-
 	if input.Count != nil {
 		if *input.Count < 1 {
 			return fmt.Errorf("count must be greater than 0")
@@ -136,8 +120,6 @@ func (t *Tool) convertInput(input dto.Input) adaccounts.SearchInput {
 		AccountIDs: accountIDs,
 		References: input.References,
 		Names:      input.Names,
-		SortField:  input.SortField,
-		SortOrder:  input.SortOrder,
 	}
 
 	if input.Start != nil {

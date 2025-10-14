@@ -7,8 +7,6 @@ type Input struct {
 	Test       *bool    `json:"test,omitempty" jsonschema:"Filter by test accounts: true, false, or omit for both"`
 	References []string `json:"references" jsonschema:"Filter by associated entity URNs (urn:li:organization:{id} or urn:li:person:{id})"`
 	Names      []string `json:"names" jsonschema:"Filter by ad account names (exact match)"`
-	SortField  string   `json:"sortField" jsonschema:"Sort field: id, name, createdTime, lastModifiedTime"`
-	SortOrder  string   `json:"sortOrder" jsonschema:"Sort order: ASCENDING or DESCENDING"`
 	Start      *int     `json:"start,omitempty" jsonschema:"Pagination start offset (>=0)"`
 	Count      *int     `json:"count,omitempty" jsonschema:"Results per page (1-1000). Default 100"`
 }

@@ -2,7 +2,6 @@ package adaccounts
 
 import (
 	"fmt"
-	"net/url"
 	"strings"
 )
 
@@ -69,13 +68,6 @@ func (qb *QueryBuilder) buildQueryParams(input SearchInput) string {
 
 	if len(searchParts) > 0 {
 		params = append(params, fmt.Sprintf("search=(%s)", strings.Join(searchParts, ",")))
-	}
-
-	if input.SortField != "" {
-		params = append(params, fmt.Sprintf("sort.field=%s", url.QueryEscape(input.SortField)))
-	}
-	if input.SortOrder != "" {
-		params = append(params, fmt.Sprintf("sort.order=%s", url.QueryEscape(input.SortOrder)))
 	}
 
 	if input.Start > 0 {
