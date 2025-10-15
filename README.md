@@ -1,59 +1,31 @@
 # LinkedIn MCP Server
 
-## Building
+Remote-ready MCP server that exposes LinkedIn Advertising tools, resources, and prompts via the streamable HTTP transport. For background on remote connectors, see [Claude’s custom connector docs](https://support.claude.com/en/articles/11503834-building-custom-connectors-via-remote-mcp-servers).
 
-### macOS/Linux
+## Configure & Run
 
-To build the binary with proper execute permissions:
+1. Export your LinkedIn API token and optionally adjust the server bind address/path:
 
-```bash
-go build -o linkedin-mcp && chmod +x linkedin-mcp
-```
+   ```bash
+   export LINKEDIN_ACCESS_TOKEN="<token>"
+   ```
 
-This ensures the binary has execute permissions when distributed to other users.
+2. Build or run directly with Go:
 
-### Windows
+   ```bash
+   go run ./...
+   # or
+   go build -o linkedin-mcp
+   ./linkedin-mcp
+   ```
 
-To build the binary for Windows:
+The server listens on `http://127.0.0.1:8080` and serves the MCP streamable endpoint at `/mcp` with JSON responses. Clients such as Claude Desktop can connect using the "Remote MCP" connector flow.
 
-```cmd
-go build -o linkedin-mcp.exe
-```
+## Remote Connector Registration
 
-## Installing (macOS)
-
-1. Download the release archive containing `linkedin-mcp` and `install-macos.command`.
-2. Unzip and open the folder.
-3. Double-click `install-macos.command` and follow the prompts.
-   - The script copies the binary to `~/.local/bin`.
-   - It removes Gatekeeper quarantine and sets execute permissions.
-   - It updates `~/Library/Application Support/Claude/claude_desktop_config.json` with the MCP configuration.
-4. Quit and relaunch Claude Desktop (Cmd+Q) to finish.
-
-If you prefer the terminal, run:
-
-```bash
-~/Downloads/path-to-folder/install-macos.command
-```
-
-## Installing (Windows)
-
-1. Download the release archive containing `linkedin-mcp.exe` and `install-windows.ps1`.
-2. Extract the folder.
-3. Run PowerShell and execute:
-
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
-cd "C:\\path\\to\\folder"
-./install-windows.ps1
-```
-
-   - The script copies the binary to `%LOCALAPPDATA%\LinkedInMCP`.
-   - It removes the download block and updates `%APPDATA%\Claude\claude_desktop_config.json` with the MCP configuration.
-4. Quit and relaunch Claude Desktop (Ctrl+Q) to finish.
+When adding the server in Claude’s connector UI, specify the base URL `http://127.0.0.1:8080/mcp`. OAuth is not required; the server currently expects the LinkedIn token via environment variables.
 
 ## Troubleshooting
 
-- **macOS warning about malware**: right-click the binary and choose Open once, or run `xattr -d com.apple.quarantine /full/path/to/linkedin-mcp`.
-- **Windows execution policy**: if the script is blocked, ensure you used the `Set-ExecutionPolicy` command above.
-- **Claude config reset**: rerun the installer for your platform to rewrite the configuration.
+- Ensure `LINKEDIN_ACCESS_TOKEN` is set and valid before starting the server.
+- Verify the MCP endpoint (`http://127.0.0.1:8080/mcp`) is reachable from clients.
