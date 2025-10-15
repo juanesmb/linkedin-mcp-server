@@ -5,6 +5,8 @@ import (
 	"linkedin-mcp/internal/infrastructure/api/campaigns"
 	reportingapi "linkedin-mcp/internal/infrastructure/api/reporting"
 	"linkedin-mcp/internal/infrastructure/http"
+	"linkedin-mcp/internal/infrastructure/log"
+	locallogger "linkedin-mcp/internal/infrastructure/log/local"
 	"linkedin-mcp/internal/infrastructure/prompts/accountid"
 	"linkedin-mcp/internal/infrastructure/prompts/systemguidelines"
 	"linkedin-mcp/internal/infrastructure/resources/analytics/metrics"
@@ -77,41 +79,48 @@ func initServer(configs Configs) *mcp.Server {
 
 func initSearchCampaignsTool(configs Configs) *searchcampaigns.Tool {
 	httpClient := http.NewClient(nil)
+	logger := resolveLogger(configs)
 
 	queryBuilder := campaigns.NewQueryBuilder(configs.LinkedInConfigs.BaseURL,
 		configs.LinkedInConfigs.Version,
 		configs.LinkedInConfigs.AccessToken,
 	)
 
-	campaignsRepository := campaigns.NewRepository(httpClient, queryBuilder)
+	campaignsRepository := campaigns.NewRepository(httpClient, queryBuilder, logger)
 
 	return searchcampaigns.NewTool(campaignsRepository)
 }
 
 func initSearchAdAccountsTool(configs Configs) *searchadaccounts.Tool {
 	httpClient := http.NewClient(nil)
+	logger := resolveLogger(configs)
 
 	queryBuilder := adaccountsapi.NewQueryBuilder(configs.LinkedInConfigs.BaseURL,
 		configs.LinkedInConfigs.Version,
 		configs.LinkedInConfigs.AccessToken,
 	)
 
-	repository := adaccountsapi.NewRepository(httpClient, queryBuilder)
+	repository := adaccountsapi.NewRepository(httpClient, queryBuilder, logger)
 
 	return searchadaccounts.NewTool(repository)
 }
 
 func initReportingTool(configs Configs) *getanalytics.Tool {
 	httpClient := http.NewClient(nil)
+	logger := resolveLogger(configs)
 
 	queryBuilder := reportingapi.NewQueryBuilder(configs.LinkedInConfigs.BaseURL,
 		configs.LinkedInConfigs.Version,
 		configs.LinkedInConfigs.AccessToken,
 	)
 
-	reportingRepository := reportingapi.NewRepository(httpClient, queryBuilder)
+	reportingRepository := reportingapi.NewRepository(httpClient, queryBuilder, logger)
 
 	return getanalytics.NewTool(reportingRepository)
+}
+
+func resolveLogger(configs Configs) log.Logger {
+	return locallogger.NewLogger()
 }
 
 func initAnalyticsResource() *queryparameters.Resource {

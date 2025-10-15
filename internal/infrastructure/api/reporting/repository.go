@@ -4,19 +4,47 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"linkedin-mcp/internal/infrastructure/api"
 )
 
+const (
+	logMessageFailedRequest        = "failed to make request"
+	logMessageLinkedInAPIError     = "linkedin api responded with error"
+	logMessageFailedDecodeResponse = "failed to decode response"
+	logMessageFailedDecodeElement  = "failed to decode analytics element"
+
+	logTagURL    = "url"
+	logTagError  = "error"
+	logTagStatus = "status"
+	logTagBody   = "body"
+	logTagMetric = "metric"
+
+	errFmtFailedRequest         = "failed to make request: %w"
+	errFmtLinkedInAPIErrorJSON  = "linkedin api error: status %d, body: %v"
+	errFmtLinkedInAPIErrorPlain = "linkedin api error: status %d, body: %s"
+	errFmtLinkedInAPIError      = "linkedin api error: status %d"
+	errFmtDecodeResponse        = "failed to decode response: %w"
+	errFmtDecodeElement         = "failed to decode analytics element: %w"
+)
+
+type Logger interface {
+	Error(ctx context.Context, message string, tags map[string]string)
+}
+
 type Repository struct {
 	client       api.Client
 	queryBuilder *QueryBuilder
+	logger       Logger
 }
 
-func NewRepository(client api.Client, queryBuilder *QueryBuilder) *Repository {
+func NewRepository(client api.Client, queryBuilder *QueryBuilder, logger Logger) *Repository {
 	return &Repository{
 		client:       client,
 		queryBuilder: queryBuilder,
+		logger:       logger,
 	}
 }
 
@@ -25,20 +53,46 @@ func (r *Repository) GetAnalytics(ctx context.Context, input AnalyticsInput) (*A
 
 	response, err := r.client.Get(ctx, requestURL, headers)
 	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %w", err)
+		r.logError(ctx, logMessageFailedRequest, map[string]string{
+			logTagURL:   requestURL,
+			logTagError: err.Error(),
+		})
+		return nil, fmt.Errorf(errFmtFailedRequest, err)
 	}
 
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		var errBody map[string]any
-		_ = json.Unmarshal(response.Body, &errBody)
+		bodyString := strings.TrimSpace(string(response.Body))
+		tags := map[string]string{
+			logTagURL:    requestURL,
+			logTagStatus: strconv.Itoa(response.StatusCode),
+		}
+		if bodyString != "" {
+			tags[logTagBody] = bodyString
+		}
 
-		return nil, fmt.Errorf("linkedin api error: status %d, body: %v", response.StatusCode, errBody)
+		r.logError(ctx, logMessageLinkedInAPIError, tags)
+
+		var errBody any
+		if err := json.Unmarshal(response.Body, &errBody); err == nil {
+			return nil, fmt.Errorf(errFmtLinkedInAPIErrorJSON, response.StatusCode, errBody)
+		}
+
+		trimmedBody := strings.TrimSpace(string(response.Body))
+		if trimmedBody != "" {
+			return nil, fmt.Errorf(errFmtLinkedInAPIErrorPlain, response.StatusCode, trimmedBody)
+		}
+
+		return nil, fmt.Errorf(errFmtLinkedInAPIError, response.StatusCode)
 	}
 
 	var liResp LinkedInAnalyticsResponse
 	err = json.Unmarshal(response.Body, &liResp)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+		r.logError(ctx, logMessageFailedDecodeResponse, map[string]string{
+			logTagURL:   requestURL,
+			logTagError: err.Error(),
+		})
+		return nil, fmt.Errorf(errFmtDecodeResponse, err)
 	}
 
 	// Convert LinkedIn response to our domain model
@@ -48,7 +102,11 @@ func (r *Repository) GetAnalytics(ctx context.Context, input AnalyticsInput) (*A
 		var elementMap map[string]interface{}
 		err := json.Unmarshal(rawElement, &elementMap)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode analytics element: %w", err)
+			r.logError(ctx, logMessageFailedDecodeElement, map[string]string{
+				logTagMetric: strconv.Itoa(i),
+				logTagError:  err.Error(),
+			})
+			return nil, fmt.Errorf(errFmtDecodeElement, err)
 		}
 
 		element := AnalyticsElement{}
@@ -101,4 +159,12 @@ func (r *Repository) GetAnalytics(ctx context.Context, input AnalyticsInput) (*A
 	}
 
 	return result, nil
+}
+
+func (r *Repository) logError(ctx context.Context, message string, tags map[string]string) {
+	if r.logger == nil {
+		return
+	}
+
+	r.logger.Error(ctx, message, tags)
 }
