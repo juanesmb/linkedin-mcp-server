@@ -2,6 +2,7 @@ package adaccounts
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -39,7 +40,7 @@ func (qb *QueryBuilder) buildQueryParams(input SearchInput) string {
 
 	var searchParts []string
 
-	addList := func(field string, values []string) {
+	addList := func(field string, values []string, encode bool) {
 		if len(values) == 0 {
 			return
 		}
@@ -49,6 +50,9 @@ func (qb *QueryBuilder) buildQueryParams(input SearchInput) string {
 			if trimmed == "" {
 				continue
 			}
+			if encode {
+				trimmed = url.PathEscape(trimmed)
+			}
 			cleaned = append(cleaned, trimmed)
 		}
 		if len(cleaned) == 0 {
@@ -57,10 +61,10 @@ func (qb *QueryBuilder) buildQueryParams(input SearchInput) string {
 		searchParts = append(searchParts, fmt.Sprintf("%s:(values:List(%s))", field, strings.Join(cleaned, ",")))
 	}
 
-	addList("status", input.Status)
-	addList("id", input.AccountIDs)
-	addList("reference", input.References)
-	addList("name", input.Names)
+	addList("status", input.Status, false)
+	addList("id", input.AccountIDs, false)
+	addList("reference", input.References, false)
+	addList("name", input.Names, true)
 
 	if input.Test != nil {
 		searchParts = append(searchParts, fmt.Sprintf("test:%t", *input.Test))
