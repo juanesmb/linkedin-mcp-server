@@ -1,9 +1,14 @@
 package app
 
-import "os"
+import (
+	"fmt"
+	"os"
+	"strings"
+)
 
 type Configs struct {
 	LinkedInConfigs LinkedInConfigs
+	ServerConfig    ServerConfig
 }
 
 type LinkedInConfigs struct {
@@ -12,7 +17,38 @@ type LinkedInConfigs struct {
 	Version     string
 }
 
+type ServerConfig struct {
+	BindAddress string
+	Port        string
+	Path        string
+	PublicURL   string
+}
+
 func readConfigs() Configs {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	host := os.Getenv("MCP_SERVER_HOST")
+	if host == "" {
+		host = "0.0.0.0"
+	}
+
+	path := os.Getenv("MCP_SERVER_PATH")
+	if path == "" {
+		path = "/mcp"
+	} else if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+
+	bindAddress := fmt.Sprintf("%s:%s", host, port)
+
+	publicURL := os.Getenv("MCP_PUBLIC_URL")
+	if publicURL == "" {
+		publicURL = fmt.Sprintf("http://127.0.0.1:%s%s", port, path)
+	}
+
 	linkedInConfigs := LinkedInConfigs{
 		AccessToken: os.Getenv("LINKEDIN_ACCESS_TOKEN"),
 		BaseURL:     "https://api.linkedin.com/rest",
@@ -21,5 +57,11 @@ func readConfigs() Configs {
 
 	return Configs{
 		LinkedInConfigs: linkedInConfigs,
+		ServerConfig: ServerConfig{
+			BindAddress: bindAddress,
+			Port:        port,
+			Path:        path,
+			PublicURL:   publicURL,
+		},
 	}
 }

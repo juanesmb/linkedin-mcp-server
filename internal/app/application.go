@@ -25,16 +25,16 @@ func Start() {
 	}, &mcp.StreamableHTTPOptions{JSONResponse: true})
 
 	mux := http.NewServeMux()
-	mux.Handle("/mcp", handler)
+	mux.Handle(configs.ServerConfig.Path, handler)
 
 	wrappedHandler := middleware.LoggingHandler(mux)
 
 	httpServer := &http.Server{
-		Addr:    ":8080",
+		Addr:    configs.ServerConfig.BindAddress,
 		Handler: wrappedHandler,
 	}
 
-	log.Printf("LinkedIn MCP server (streamable HTTP) listening on %s", ":8080/mcp")
+	log.Printf("LinkedIn MCP server (streamable HTTP) listening on %s", configs.ServerConfig.PublicURL)
 
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -59,19 +59,3 @@ func Start() {
 		}
 	}
 }
-
-/*func Start() {
-	configs := readConfigs()
-
-	handler := initServer(configs)
-
-	handlerWithLogging := middleware.LoggingHandler(handler)
-
-	log.Printf("MCP server listening on PORT: %s", port)
-
-	// Start the HTTP server with logging handler.
-	err := http.ListenAndServe(port, handlerWithLogging)
-	if err != nil {
-		log.Fatalf("Server failed: %v", err)
-	}
-}*/
