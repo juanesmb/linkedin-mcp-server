@@ -1,0 +1,20 @@
+# Build context exclusions
+.git
+.github
+.gitignore
+Dockerfile
+README.md
+
+# Build artifacts
+linkedin-mcp
+linkedin-mcp.exe
+bin/
+pkg/
+
+# OS files
+.DS_Store
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp

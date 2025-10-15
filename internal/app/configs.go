@@ -21,7 +21,6 @@ type ServerConfig struct {
 	BindAddress string
 	Port        string
 	Path        string
-	PublicURL   string
 }
 
 func readConfigs() Configs {
@@ -44,11 +43,6 @@ func readConfigs() Configs {
 
 	bindAddress := fmt.Sprintf("%s:%s", host, port)
 
-	publicURL := os.Getenv("MCP_PUBLIC_URL")
-	if publicURL == "" {
-		publicURL = fmt.Sprintf("http://127.0.0.1:%s%s", port, path)
-	}
-
 	linkedInConfigs := LinkedInConfigs{
 		AccessToken: os.Getenv("LINKEDIN_ACCESS_TOKEN"),
 		BaseURL:     "https://api.linkedin.com/rest",
@@ -61,7 +55,6 @@ func readConfigs() Configs {
 			BindAddress: bindAddress,
 			Port:        port,
 			Path:        path,
-			PublicURL:   publicURL,
 		},
 	}
 }

@@ -34,7 +34,7 @@ func Start() {
 		Handler: wrappedHandler,
 	}
 
-	log.Printf("LinkedIn MCP server (streamable HTTP) listening on %s", configs.ServerConfig.PublicURL)
+	log.Printf("LinkedIn MCP server (streamable HTTP) listening on path %s (bind %s)", configs.ServerConfig.Path, configs.ServerConfig.BindAddress)
 
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

@@ -1,31 +1,59 @@
 # LinkedIn MCP Server
 
-Remote-ready MCP server that exposes LinkedIn Advertising tools, resources, and prompts via the streamable HTTP transport. For background on remote connectors, see [Claude’s custom connector docs](https://support.claude.com/en/articles/11503834-building-custom-connectors-via-remote-mcp-servers).
+A Model Context Protocol (MCP) server that exposes LinkedIn Advertising capabilities—searching ad accounts, exploring campaigns, and retrieving analytics insights. Use it to connect MCP-compatible clients (e.g., Claude Desktop) to the LinkedIn Ads API via a single, structured interface.
 
-## Configure & Run
+## Highlights
+- Streamable HTTP transport for remote connector support.
+- Tools, prompts, and resources tailored to LinkedIn Ads workflows.
+- Written in Go using the official [modelcontextprotocol/go-sdk](https://github.com/modelcontextprotocol/go-sdk/tree/main).
 
-1. Export your LinkedIn API token and optionally adjust the server bind address/path:
+## Prerequisites
+- Go 1.25+
+- LinkedIn Ads REST access token with the necessary scopes
+- Optional: Docker for containerized builds
 
-   ```bash
-   export LINKEDIN_ACCESS_TOKEN="<token>"
-   ```
+## Quick Start (local)
+```bash
+git clone https://github.com/your-org/linkedin-mcp.git
+cd linkedin-mcp/server
 
-2. Build or run directly with Go:
+export LINKEDIN_ACCESS_TOKEN="<your_linkedin_token>"
 
-   ```bash
-   go run ./...
-   # or
-   go build -o linkedin-mcp
-   ./linkedin-mcp
-   ```
+go run ./...
+# or
+go build -o linkedin-mcp
+./linkedin-mcp
+```
+The server listens on `http://127.0.0.1:8080/mcp`. You can point an MCP client at that URL to begin calling tools.
 
-The server listens on `http://127.0.0.1:8080` and serves the MCP streamable endpoint at `/mcp` with JSON responses. Clients such as Claude Desktop can connect using the "Remote MCP" connector flow.
+## Docker
+```bash
+docker build -t linkedin-mcp:local .
+docker run --rm -p 8080:8080 \
+  -e LINKEDIN_ACCESS_TOKEN="$LINKEDIN_ACCESS_TOKEN" \
+  linkedin-mcp:local
+```
 
-## Remote Connector Registration
+## Configuration
+Environment variables:
+- `LINKEDIN_ACCESS_TOKEN` (required): LinkedIn Ads API bearer token
+- `PORT` (optional): port to bind (default `8080`)
+- `MCP_SERVER_HOST` (optional): host interface (default `0.0.0.0`)
+- `MCP_SERVER_PATH` (optional): MCP endpoint path (default `/mcp`)
 
-When adding the server in Claude’s connector UI, specify the base URL `http://127.0.0.1:8080/mcp`. OAuth is not required; the server currently expects the LinkedIn token via environment variables.
+## Remote MCP Connector (Claude Desktop example)
+1. Run or deploy the server (see Cloud Run guide below).
+2. In Claude Desktop → Settings → Connectors → Add Remote MCP.
+3. Use the base URL `https://your-domain/mcp` (or `http://127.0.0.1:8080/mcp` for local testing).
+4. Call the `system_guidelines` prompt first to understand available tools and required arguments.
 
-## Troubleshooting
+## Testing
+```bash
+go test ./...
+```
 
-- Ensure `LINKEDIN_ACCESS_TOKEN` is set and valid before starting the server.
-- Verify the MCP endpoint (`http://127.0.0.1:8080/mcp`) is reachable from clients.
+## Contributing
+Issues and pull requests are welcome. Please:
+- Include context about LinkedIn API usage or MCP behavior.
+- Add or update tests when touching business logic.
+- Follow Go formatting (`gofmt`) before submitting.
