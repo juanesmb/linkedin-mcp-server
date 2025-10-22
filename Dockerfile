@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1.6
-
 ARG GO_VERSION=1.25
 
 FROM golang:${GO_VERSION}-bookworm AS builder
@@ -7,13 +5,10 @@ FROM golang:${GO_VERSION}-bookworm AS builder
 WORKDIR /src
 
 COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod \
-    go mod download
+RUN go mod download
 
 COPY . ./
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     mkdir -p /out && \
     go build -trimpath -o /out/linkedin-mcp .
 
