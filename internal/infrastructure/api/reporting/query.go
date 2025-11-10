@@ -30,21 +30,3 @@ type SortBy struct {
 	Field string `json:"field,omitempty"`
 	Order string `json:"order,omitempty"`
 }
-
-type AnalyticsResult struct {
-	Elements []AnalyticsElement `json:"elements"`
-	Paging   Paging             `json:"paging"`
-}
-
-type AnalyticsElement struct {
-	DateRange   *DateRange `json:"dateRange,omitempty"`
-	PivotValues []string   `json:"pivotValues,omitempty"`
-	// Dynamic fields based on requested metrics
-	Metrics map[string]interface{} `json:"metrics,omitempty"`
-}
-
-type Paging struct {
-	Count int                 `json:"count"`
-	Start int                 `json:"start"`
-	Links []map[string]string `json:"links"`
-}

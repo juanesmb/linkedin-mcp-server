@@ -7,7 +7,8 @@ type Output struct {
 
 type AnalyticsElement struct {
 	DateRange   *DateRange             `json:"dateRange,omitempty" jsonschema:"Date range for this data point"`
-	PivotValues []string               `json:"pivotValues,omitempty" jsonschema:"Pivot values for this data point"`
+	PivotValues []string               `json:"pivotValues,omitempty" jsonschema:"Pivot values for this data point (URNs)"`
+	CreativeID  string                 `json:"creativeID,omitempty" jsonschema:"Creative ID extracted from pivotValues URN when pivot=CREATIVE"`
 	Metrics     map[string]interface{} `json:"metrics,omitempty" jsonschema:"Metric values (dynamic based on requested fields)"`
 }
 

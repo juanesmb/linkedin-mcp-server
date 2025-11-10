@@ -28,6 +28,11 @@ const (
 	errFmtLinkedInAPIError      = "linkedin api error: status %d"
 	errFmtDecodeResponse        = "failed to decode response: %w"
 	errFmtDecodeElement         = "failed to decode analytics element: %w"
+
+	// creativeURNPrefix is the standard LinkedIn URN prefix for sponsored creatives.
+	// Format: urn:li:sponsoredCreative:{id}
+	// Reference: https://learn.microsoft.com/en-us/linkedin/shared/api-guide/concepts/urns
+	creativeURNPrefix = "urn:li:sponsoredCreative:"
 )
 
 type Logger interface {
@@ -141,6 +146,9 @@ func (r *Repository) GetAnalytics(ctx context.Context, input AnalyticsInput) (*A
 			}
 		}
 
+		// Extract creative ID from pivotValues if it's a creative URN
+		element.CreativeID = r.extractCreativeID(element.PivotValues)
+
 		// Extract all other fields as metrics (excluding known fields)
 		metrics := make(map[string]interface{})
 		for key, value := range elementMap {
@@ -159,6 +167,31 @@ func (r *Repository) GetAnalytics(ctx context.Context, input AnalyticsInput) (*A
 	}
 
 	return result, nil
+}
+
+// extractCreativeID extracts the numeric creative ID from a creative URN in pivotValues.
+// URN format: urn:li:sponsoredCreative:{ID}
+// According to LinkedIn API documentation, this is the standard format for creative URNs.
+// Reference: https://learn.microsoft.com/en-us/linkedin/shared/api-guide/concepts/urns
+// Returns empty string if no creative URN is found.
+func (r *Repository) extractCreativeID(pivotValues []string) string {
+	if len(pivotValues) == 0 {
+		return ""
+	}
+
+	// Check the first pivot value for a creative URN
+	urn := pivotValues[0]
+	if !strings.HasPrefix(urn, creativeURNPrefix) {
+		return ""
+	}
+
+	// Extract the ID (everything after the prefix)
+	creativeID := strings.TrimPrefix(urn, creativeURNPrefix)
+	if creativeID == "" {
+		return ""
+	}
+
+	return creativeID
 }
 
 func (r *Repository) logError(ctx context.Context, message string, tags map[string]string) {

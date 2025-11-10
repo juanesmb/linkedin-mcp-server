@@ -207,6 +207,7 @@ func (t *Tool) convertOutput(result *reporting.AnalyticsResult) dto.Output {
 		elements[i] = dto.AnalyticsElement{
 			DateRange:   t.convertDateRange(element.DateRange),
 			PivotValues: element.PivotValues,
+			CreativeID:  element.CreativeID,
 			Metrics:     element.Metrics,
 		}
 	}

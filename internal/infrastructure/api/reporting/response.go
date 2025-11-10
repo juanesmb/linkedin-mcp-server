@@ -13,3 +13,22 @@ type LinkedInAnalyticsElement struct {
 	// All other fields are dynamic based on the requested metrics
 	// We'll use json.RawMessage to handle them dynamically
 }
+
+type AnalyticsResult struct {
+	Elements []AnalyticsElement `json:"elements"`
+	Paging   Paging             `json:"paging"`
+}
+
+type AnalyticsElement struct {
+	DateRange   *DateRange `json:"dateRange,omitempty"`
+	PivotValues []string   `json:"pivotValues,omitempty"`
+	CreativeID  string     `json:"creativeID,omitempty"`
+	// Dynamic fields based on requested metrics
+	Metrics map[string]interface{} `json:"metrics,omitempty"`
+}
+
+type Paging struct {
+	Count int                 `json:"count"`
+	Start int                 `json:"start"`
+	Links []map[string]string `json:"links"`
+}
