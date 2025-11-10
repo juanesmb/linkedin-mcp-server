@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"unicode"
 
 	"linkedin-mcp/internal/infrastructure/api/reporting"
 	"linkedin-mcp/internal/infrastructure/tools/getanalytics/dto"
@@ -158,10 +159,23 @@ func (t *Tool) validateInput(input dto.Input) error {
 	for i, company := range input.Companies {
 		input.Companies[i] = strings.TrimSpace(company)
 	}
-	for i, field := range input.Fields {
-		input.Fields[i] = strings.TrimSpace(field)
+
+	// Normalize field names to camelCase (LinkedIn API format)
+	normalizedFields := make([]string, 0, len(input.Fields))
+	for _, field := range input.Fields {
+		normalized := t.normalizeFieldName(strings.TrimSpace(field))
+		if normalized != "" {
+			normalizedFields = append(normalizedFields, normalized)
+		}
+		// Note: Fields that normalize to empty string (like CLICK_THRU_RATE, CTR, CPA)
+		// are filtered out as they are calculated metrics, not direct API fields
 	}
 
+	if len(normalizedFields) == 0 {
+		return fmt.Errorf("no valid fields after normalization")
+	}
+
+	input.Fields = normalizedFields
 	return nil
 }
 
@@ -220,6 +234,66 @@ func (t *Tool) convertOutput(result *reporting.AnalyticsResult) dto.Output {
 			Links: result.Paging.Links,
 		},
 	}
+}
+
+// normalizeFieldName converts field names from various formats (UPPER_CASE, UPPERCASE) to camelCase
+// which is the format expected by LinkedIn API.
+// Also handles common aliases and variations.
+func (t *Tool) normalizeFieldName(field string) string {
+	if field == "" {
+		return ""
+	}
+
+	// Handle common aliases first
+	aliases := map[string]string{
+		"CONVERSIONS":             "externalWebsiteConversions",
+		"SPEND_IN_LOCAL_CURRENCY": "costInLocalCurrency",
+		"SPEND":                   "costInLocalCurrency",
+		"CLICK_THRU_RATE":         "", // Not a direct field, would need calculation
+		"CTR":                     "", // Not a direct field, would need calculation
+		"CPA":                     "", // Not a direct field, would need calculation
+	}
+
+	if alias, ok := aliases[strings.ToUpper(field)]; ok {
+		return alias
+	}
+
+	// If already in camelCase (has lowercase), return as-is
+	if len(field) > 0 && unicode.IsLower(rune(field[0])) {
+		return field
+	}
+
+	// Convert UPPER_CASE or UPPERCASE to camelCase
+	parts := strings.Split(field, "_")
+	if len(parts) == 1 {
+		// Single word - convert UPPERCASE to lowercase
+		return strings.ToLower(field)
+	}
+
+	// Multiple parts separated by underscores
+	var result strings.Builder
+	for i, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+
+		if i == 0 {
+			// First part: all lowercase
+			result.WriteString(strings.ToLower(part))
+		} else {
+			// Subsequent parts: capitalize first letter, rest lowercase
+			partLower := strings.ToLower(part)
+			if len(partLower) > 0 {
+				result.WriteString(strings.ToUpper(partLower[:1]))
+				if len(partLower) > 1 {
+					result.WriteString(partLower[1:])
+				}
+			}
+		}
+	}
+
+	return result.String()
 }
 
 func (t *Tool) convertDateRange(dateRange *reporting.DateRange) *dto.DateRange {
