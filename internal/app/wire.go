@@ -25,9 +25,6 @@ func initServer(configs Configs) *mcp.Server {
 		Title:   "LinkedIn Advertising MCP server.",
 	}, &mcp.ServerOptions{
 		Instructions: "This is a LinkedIn Advertising MCP server. Before using any tool, read 'system_guidelines' prompt first.",
-		HasPrompts:   true,
-		HasResources: true,
-		HasTools:     true,
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
