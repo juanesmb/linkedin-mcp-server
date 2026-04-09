@@ -37,9 +37,8 @@ docker run --rm -p 8080:8080 \
 ## Configuration
 Environment variables:
 - `LINKEDIN_ACCESS_TOKEN` (required): LinkedIn Ads API bearer token
-- `PORT` (optional): port to bind (default `8080`)
-- `MCP_SERVER_HOST` (optional): host interface (default `0.0.0.0`)
-- `MCP_SERVER_PATH` (optional): MCP endpoint path (default `/mcp`)
+
+The HTTP server always listens on address `:8080` at path `/mcp`.
 
 ## Remote MCP Connector (Claude Desktop example)
 1. Run or deploy the server (see Cloud Run guide below).
