@@ -2,14 +2,13 @@ package metrics
 
 import (
 	"context"
-	"embed"
+	"encoding/json"
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-//go:embed dto/linkedin_analytics_metrics.json
-var linkedinAnalyticsMetricsFile embed.FS
+const schemaURL = "https://learn.microsoft.com/en-us/linkedin/marketing/integrations/ads-reporting/ads-reporting-schema?view=li-lms-2026-03#metrics-available"
 
 type Resource struct{}
 
@@ -22,18 +21,26 @@ func (r *Resource) ReadResource(ctx context.Context, req *mcp.ReadResourceReques
 		return nil, fmt.Errorf("resource not found: %s", req.Params.URI)
 	}
 
-	// Read the embedded JSON file
-	data, err := linkedinAnalyticsMetricsFile.ReadFile("dto/linkedin_analytics_metrics.json")
+	payload := map[string]any{
+		"source":  schemaURL,
+		"purpose": "Canonical LinkedIn Ads Reporting metrics documentation.",
+		"notes": []string{
+			"LinkedIn documentation is the source of truth for available analytics metrics.",
+			"Metric names and availability can change over time.",
+			"Use exact metric field names from the linked table when building get_analytics requests.",
+		},
+	}
+
+	data, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read LinkedIn analytics metrics: %w", err)
+		return nil, fmt.Errorf("failed to serialize LinkedIn analytics metrics resource payload: %w", err)
 	}
 
 	return &mcp.ReadResourceResult{
 		Contents: []*mcp.ResourceContents{
 			{
-				URI:      req.Params.URI,
-				MIMEType: "application/json",
-				Text:     string(data),
+				URI:  req.Params.URI,
+				Text: string(data),
 			},
 		},
 	}, nil

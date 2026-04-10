@@ -50,16 +50,14 @@ func initServer(configs Configs) *mcp.Server {
 	server.AddResource(&mcp.Resource{
 		URI:         "linkedin://analytics/parameters",
 		Name:        "LinkedIn Analytics Query Parameters",
-		Description: "JSON schema containing LinkedIn analytics API query parameters and their descriptions",
-		MIMEType:    "application/json",
+		Description: "Reference link to LinkedIn analytics query parameters documentation",
 	}, analyticsResource.ReadResource)
 
 	analyticsMetricsResource := initAnalyticsMetricsResource()
 	server.AddResource(&mcp.Resource{
 		URI:         "linkedin://analytics/metrics",
 		Name:        "LinkedIn Analytics Metrics",
-		Description: "JSON schema containing LinkedIn analytics API metrics and their descriptions",
-		MIMEType:    "application/json",
+		Description: "Reference link to LinkedIn analytics metrics documentation",
 	}, analyticsMetricsResource.ReadResource)
 
 	return server
