@@ -4,7 +4,8 @@ A Model Context Protocol (MCP) server that exposes LinkedIn Advertising capabili
 
 ## Highlights
 - Streamable HTTP transport for remote connector support.
-- Tools, prompts, and resources tailored to LinkedIn Ads workflows.
+- Tools and resources tailored to LinkedIn Ads workflows.
+- Server-level MCP instructions guide tool usage and sequencing.
 - Written in Go using the official [modelcontextprotocol/go-sdk](https://github.com/modelcontextprotocol/go-sdk/tree/main).
 
 ## Prerequisites
@@ -37,14 +38,18 @@ docker run --rm -p 8080:8080 \
 ## Configuration
 Environment variables:
 - `LINKEDIN_ACCESS_TOKEN` (required): LinkedIn Ads API bearer token
+- `PORT` (optional): port to bind (default `8080`)
+- `MCP_SERVER_HOST` (optional): host interface (default `0.0.0.0`)
+- `MCP_SERVER_PATH` (optional): MCP endpoint path (default `/mcp`)
 
-The HTTP server always listens on address `:8080` at path `/mcp`.
+By default the HTTP server binds to `0.0.0.0:8080` and serves MCP on `/mcp`.
+Server instructions are loaded from `internal/infrastructure/instructions/server_instructions.md` at startup; if the file is missing or empty, startup fails.
 
 ## Remote MCP Connector (Claude Desktop example)
 1. Run or deploy the server (see Cloud Run guide below).
 2. In Claude Desktop → Settings → Connectors → Add Remote MCP.
 3. Use the base URL `https://your-domain/mcp` (or `http://127.0.0.1:8080/mcp` for local testing).
-4. Call the `system_guidelines` prompt first to understand available tools and required arguments.
+4. Follow the server `instructions` and read analytics resources (`linkedin://analytics/parameters` and `linkedin://analytics/metrics`) before calling `get_analytics`.
 
 ## Testing
 ```bash

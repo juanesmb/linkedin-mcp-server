@@ -1,14 +1,16 @@
 package app
 
 import (
+	"log"
+	"os"
+	"strings"
+
 	adaccountsapi "linkedin-mcp/internal/infrastructure/api/adaccounts"
 	"linkedin-mcp/internal/infrastructure/api/campaigns"
 	reportingapi "linkedin-mcp/internal/infrastructure/api/reporting"
 	"linkedin-mcp/internal/infrastructure/http"
-	"linkedin-mcp/internal/infrastructure/log"
+	infrastructurelog "linkedin-mcp/internal/infrastructure/log"
 	locallogger "linkedin-mcp/internal/infrastructure/log/local"
-	"linkedin-mcp/internal/infrastructure/prompts/accountid"
-	"linkedin-mcp/internal/infrastructure/prompts/systemguidelines"
 	"linkedin-mcp/internal/infrastructure/resources/analytics/metrics"
 	"linkedin-mcp/internal/infrastructure/resources/analytics/queryparameters"
 	"linkedin-mcp/internal/infrastructure/tools/getanalytics"
@@ -18,26 +20,30 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+const (
+	serverInstructionsFilePath = "internal/app/instructions/server_instructions.md"
+)
+
 func initServer(configs Configs) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "LinkedIn",
 		Version: "v1.0.0",
 		Title:   "LinkedIn Advertising MCP server.",
 	}, &mcp.ServerOptions{
-		Instructions: "This is a LinkedIn Advertising MCP server. Before using any tool, read 'system_guidelines' prompt first.",
+		Instructions: loadServerInstructions(),
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "search_ad_accounts",
-		Description: "Search for LinkedIn ad accounts without needing an ID. REQUIRES: Use 'system_guidelines' prompt first.",
+		Description: "Search for LinkedIn ad accounts without requiring an accountID argument.",
 	}, initSearchAdAccountsTool(configs).SearchAdAccounts)
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "search_campaigns",
-		Description: "Search for LinkedIn ad campaigns. REQUIRES: Use 'system_guidelines' prompt first.",
+		Description: "Search for LinkedIn ad campaigns. Requires the accountID argument.",
 	}, initSearchCampaignsTool(configs).SearchCampaigns)
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_analytics",
-		Description: "Get LinkedIn ad analytics data. REQUIRES: Use 'system_guidelines' prompt first.",
+		Description: "Get LinkedIn ad analytics data. Requires accountID and should be used after reading analytics resources.",
 	}, initReportingTool(configs).GetAnalytics)
 
 	analyticsResource := initAnalyticsResource()
@@ -55,26 +61,6 @@ func initServer(configs Configs) *mcp.Server {
 		Description: "JSON schema containing LinkedIn analytics API metrics and their descriptions",
 		MIMEType:    "application/json",
 	}, analyticsMetricsResource.ReadResource)
-
-	systemGuidelinesPrompt := initSystemGuidelinesPrompt()
-	server.AddPrompt(&mcp.Prompt{
-		Name:        "system_guidelines",
-		Description: "System guidelines for using the LinkedIn MCP server. READ THIS FIRST before using any tools or prompts.",
-		Arguments:   []*mcp.PromptArgument{},
-	}, systemGuidelinesPrompt.GetPrompt)
-
-	accountIDPrompt := initAccountIDPrompt()
-	server.AddPrompt(&mcp.Prompt{
-		Name:        "linkedin_account_id_required",
-		Description: "Instructions to request LinkedIn Account ID before using tools",
-		Arguments: []*mcp.PromptArgument{
-			{
-				Name:        "accountID",
-				Description: "The LinkedIn Ad Account ID provided by the user",
-				Required:    true,
-			},
-		},
-	}, accountIDPrompt.GetPrompt)
 
 	return server
 }
@@ -121,7 +107,7 @@ func initReportingTool(configs Configs) *getanalytics.Tool {
 	return getanalytics.NewTool(reportingRepository)
 }
 
-func resolveLogger(configs Configs) log.Logger {
+func resolveLogger(configs Configs) infrastructurelog.Logger {
 	return locallogger.NewLogger()
 }
 
@@ -133,10 +119,16 @@ func initAnalyticsMetricsResource() *metrics.Resource {
 	return metrics.NewResource()
 }
 
-func initSystemGuidelinesPrompt() *systemguidelines.Prompt {
-	return systemguidelines.NewPrompt()
-}
+func loadServerInstructions() string {
+	content, err := os.ReadFile(serverInstructionsFilePath)
+	if err != nil {
+		log.Fatalf("failed to read MCP instructions file %q: %v", serverInstructionsFilePath, err)
+	}
 
-func initAccountIDPrompt() *accountid.Prompt {
-	return accountid.NewPrompt()
+	instructions := strings.TrimSpace(string(content))
+	if instructions == "" {
+		log.Fatalf("MCP instructions file is empty: %q", serverInstructionsFilePath)
+	}
+
+	return instructions
 }
