@@ -8,6 +8,7 @@ import (
 	"linkedin-mcp/internal/infrastructure/api"
 	adaccountsapi "linkedin-mcp/internal/infrastructure/api/adaccounts"
 	"linkedin-mcp/internal/infrastructure/api/campaigns"
+	"linkedin-mcp/internal/infrastructure/api/gateway"
 	reportingapi "linkedin-mcp/internal/infrastructure/api/reporting"
 	"linkedin-mcp/internal/infrastructure/http"
 	infrastructurelog "linkedin-mcp/internal/infrastructure/log"
@@ -26,13 +27,12 @@ const (
 )
 
 type Components struct {
-	httpClient api.Client
-	logger     infrastructurelog.Logger
+	httpClient    api.Client
+	gatewayClient *gateway.Client
+	logger        infrastructurelog.Logger
 }
 
-func initServer(configs Configs) *mcp.Server {
-	components := initCommonComponents()
-
+func initServer(configs Configs, components Components) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "LinkedIn",
 		Version: "v1.0.0",
@@ -44,15 +44,15 @@ func initServer(configs Configs) *mcp.Server {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "search_ad_accounts",
 		Description: "Search for LinkedIn ad accounts without requiring an accountID argument.",
-	}, initSearchAdAccountsTool(configs, *components).SearchAdAccounts)
+	}, initSearchAdAccountsTool(configs, components).SearchAdAccounts)
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "search_campaigns",
 		Description: "Search for LinkedIn ad campaigns. Requires the accountID argument.",
-	}, initSearchCampaignsTool(configs, *components).SearchCampaigns)
+	}, initSearchCampaignsTool(configs, components).SearchCampaigns)
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_analytics",
 		Description: "Get LinkedIn ad analytics data. Requires accountID and should be used after reading analytics resources.",
-	}, initReportingTool(configs, *components).GetAnalytics)
+	}, initReportingTool(configs, components).GetAnalytics)
 
 	analyticsResource := initAnalyticsResource()
 	server.AddResource(&mcp.Resource{
@@ -71,42 +71,35 @@ func initServer(configs Configs) *mcp.Server {
 	return server
 }
 
-func initCommonComponents() *Components {
-	return &Components{
-		httpClient: http.NewClient(nil),
-		logger:     locallogger.NewLogger(),
+func initCommonComponents(configs Configs) Components {
+	httpClient := http.NewClient(nil)
+	return Components{
+		httpClient:    httpClient,
+		gatewayClient: gateway.NewClient(httpClient, configs.GatewayConfig.BaseURL, configs.GatewayConfig.InternalSecret),
+		logger:        locallogger.NewLogger(),
 	}
 }
 
 func initSearchCampaignsTool(configs Configs, components Components) *searchcampaigns.Tool {
-	queryBuilder := campaigns.NewQueryBuilder(configs.LinkedInConfigs.BaseURL,
-		configs.LinkedInConfigs.Version,
-		configs.LinkedInConfigs.AccessToken,
-	)
+	queryBuilder := campaigns.NewQueryBuilder(configs.LinkedInConfigs.BaseURL)
 
-	campaignsRepository := campaigns.NewRepository(components.httpClient, queryBuilder, components.logger)
+	campaignsRepository := campaigns.NewRepository(components.gatewayClient, queryBuilder, components.logger)
 
 	return searchcampaigns.NewTool(campaignsRepository)
 }
 
 func initSearchAdAccountsTool(configs Configs, components Components) *searchadaccounts.Tool {
-	queryBuilder := adaccountsapi.NewQueryBuilder(configs.LinkedInConfigs.BaseURL,
-		configs.LinkedInConfigs.Version,
-		configs.LinkedInConfigs.AccessToken,
-	)
+	queryBuilder := adaccountsapi.NewQueryBuilder(configs.LinkedInConfigs.BaseURL)
 
-	repository := adaccountsapi.NewRepository(components.httpClient, queryBuilder, components.logger)
+	repository := adaccountsapi.NewRepository(components.gatewayClient, queryBuilder, components.logger)
 
 	return searchadaccounts.NewTool(repository)
 }
 
 func initReportingTool(configs Configs, components Components) *getanalytics.Tool {
-	queryBuilder := reportingapi.NewQueryBuilder(configs.LinkedInConfigs.BaseURL,
-		configs.LinkedInConfigs.Version,
-		configs.LinkedInConfigs.AccessToken,
-	)
+	queryBuilder := reportingapi.NewQueryBuilder(configs.LinkedInConfigs.BaseURL)
 
-	reportingRepository := reportingapi.NewRepository(components.httpClient, queryBuilder, components.logger)
+	reportingRepository := reportingapi.NewRepository(components.gatewayClient, queryBuilder, components.logger)
 
 	return getanalytics.NewTool(reportingRepository)
 }

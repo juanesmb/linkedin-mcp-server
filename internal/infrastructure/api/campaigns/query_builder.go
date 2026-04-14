@@ -7,32 +7,19 @@ import (
 )
 
 type QueryBuilder struct {
-	baseURL     string
-	version     string
-	accessToken string
+	baseURL string
 }
 
-func NewQueryBuilder(baseURL, version, accessToken string) *QueryBuilder {
-	return &QueryBuilder{
-		baseURL:     baseURL,
-		version:     version,
-		accessToken: accessToken,
-	}
+func NewQueryBuilder(baseURL string) *QueryBuilder {
+	return &QueryBuilder{baseURL: baseURL}
 }
 
-func (qb *QueryBuilder) BuildSearchCampaignsQuery(input SearchInput) (string, map[string]string) {
+func (qb *QueryBuilder) BuildSearchCampaignsQuery(input SearchInput) string {
 	endpoint := fmt.Sprintf("%s/adAccounts/%s/adCampaigns", strings.TrimRight(qb.baseURL, "/"), url.PathEscape(input.AccountID))
 	queryParams := qb.buildQueryParams(input)
 	fullURL := endpoint + "?" + queryParams
 
-	headers := map[string]string{
-		"Authorization":             qb.accessToken,
-		"LinkedIn-Version":          qb.version,
-		"X-Restli-Protocol-Version": "2.0.0",
-		"Accept":                    "application/json",
-	}
-
-	return fullURL, headers
+	return fullURL
 }
 
 func (qb *QueryBuilder) buildQueryParams(input SearchInput) string {

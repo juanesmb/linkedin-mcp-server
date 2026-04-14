@@ -7,7 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"linkedin-mcp/internal/infrastructure/api"
+	"linkedin-mcp/internal/infrastructure/api/gateway"
+	"linkedin-mcp/internal/infrastructure/middleware"
 )
 
 const (
@@ -32,23 +33,35 @@ type Logger interface {
 }
 
 type Repository struct {
-	client       api.Client
-	queryBuilder *QueryBuilder
-	logger       Logger
+	gatewayClient *gateway.Client
+	queryBuilder  *QueryBuilder
+	logger        Logger
 }
 
-func NewRepository(client api.Client, queryBuilder *QueryBuilder, logger Logger) *Repository {
+func NewRepository(gatewayClient *gateway.Client, queryBuilder *QueryBuilder, logger Logger) *Repository {
 	return &Repository{
-		client:       client,
-		queryBuilder: queryBuilder,
-		logger:       logger,
+		gatewayClient: gatewayClient,
+		queryBuilder:  queryBuilder,
+		logger:        logger,
 	}
 }
 
 func (r *Repository) SearchAdAccounts(ctx context.Context, input SearchInput) (*SearchResult, error) {
-	requestURL, headers := r.queryBuilder.BuildSearchAdAccountsQuery(input)
+	requestURL := r.queryBuilder.BuildSearchAdAccountsQuery(input)
+	resourcePath, query, err := gateway.ParseLinkedInRESTProxyTarget(requestURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build gateway proxy target: %w", err)
+	}
+	userID, ok := middleware.UserIDFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("missing authenticated user in request context")
+	}
 
-	response, err := r.client.Get(ctx, requestURL, headers)
+	if _, err := r.gatewayClient.GetLinkedInConnection(ctx, userID); err != nil {
+		return nil, fmt.Errorf("failed to fetch LinkedIn connection state from gateway: %w", err)
+	}
+
+	response, err := r.gatewayClient.ProxyLinkedInOrRefresh(ctx, userID, resourcePath, query)
 	if err != nil {
 		r.logError(ctx, logMessageFailedRequest, map[string]string{
 			logTagURL:   requestURL,
@@ -83,7 +96,7 @@ func (r *Repository) SearchAdAccounts(ctx context.Context, input SearchInput) (*
 	}
 
 	var liResp LinkedInResponse
-	if err = json.Unmarshal(response.Body, &liResp); err != nil {
+	if err := json.Unmarshal(response.Body, &liResp); err != nil {
 		r.logError(ctx, logMessageFailedDecodeResponse, map[string]string{
 			logTagURL:   requestURL,
 			logTagError: err.Error(),

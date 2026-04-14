@@ -7,32 +7,19 @@ import (
 )
 
 type QueryBuilder struct {
-	baseURL     string
-	version     string
-	accessToken string
+	baseURL string
 }
 
-func NewQueryBuilder(baseURL, version, accessToken string) *QueryBuilder {
-	return &QueryBuilder{
-		baseURL:     baseURL,
-		version:     version,
-		accessToken: accessToken,
-	}
+func NewQueryBuilder(baseURL string) *QueryBuilder {
+	return &QueryBuilder{baseURL: baseURL}
 }
 
-func (qb *QueryBuilder) BuildAnalyticsQuery(input AnalyticsInput) (string, map[string]string) {
+func (qb *QueryBuilder) BuildAnalyticsQuery(input AnalyticsInput) string {
 	endpoint := fmt.Sprintf("%s/adAnalytics", strings.TrimRight(qb.baseURL, "/"))
 	queryParams := qb.buildQueryParams(input)
 	fullURL := endpoint + "?" + queryParams
 
-	headers := map[string]string{
-		"Authorization":             qb.accessToken,
-		"LinkedIn-Version":          qb.version,
-		"X-Restli-Protocol-Version": "2.0.0",
-		"Accept":                    "application/json",
-	}
-
-	return fullURL, headers
+	return fullURL
 }
 
 func (qb *QueryBuilder) buildQueryParams(input AnalyticsInput) string {
@@ -124,7 +111,7 @@ func (qb *QueryBuilder) buildQueryParams(input AnalyticsInput) string {
 	// Always include pivotValues to ensure pivot identifiers are returned
 	fields := make([]string, 0, len(input.Fields)+1)
 	fields = append(fields, input.Fields...)
-	
+
 	// Check if pivotValues is already in the fields list
 	hasPivotValues := false
 	for _, field := range fields {
@@ -133,12 +120,12 @@ func (qb *QueryBuilder) buildQueryParams(input AnalyticsInput) string {
 			break
 		}
 	}
-	
+
 	// Add pivotValues if not already present
 	if !hasPivotValues {
 		fields = append(fields, "pivotValues")
 	}
-	
+
 	if len(fields) > 0 {
 		fieldsList := strings.Join(fields, ",")
 		params = append(params, fmt.Sprintf("fields=%s", fieldsList))
