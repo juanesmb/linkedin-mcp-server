@@ -33,8 +33,8 @@ func (qb *QueryBuilder) buildQueryParams(input AnalyticsInput) string {
 		params = append(params, fmt.Sprintf("pivot=%s", url.QueryEscape(input.Pivot)))
 	}
 
-	// Date range as dotted nested query keys.
-	params = append(params, qb.buildDateRangeParams(input.DateRange)...)
+	// Date range as RestLi tuple syntax required by LinkedIn analytics finder.
+	params = append(params, fmt.Sprintf("dateRange=%s", qb.buildDateRangeParam(input.DateRange)))
 
 	// Time granularity as plain enum symbol.
 	if input.TimeGranularity != "" {
@@ -100,20 +100,12 @@ func (qb *QueryBuilder) buildListParam(items []string) string {
 	return strings.Join(encoded, ",")
 }
 
-func (qb *QueryBuilder) buildDateRangeParams(dateRange DateRange) []string {
-	params := []string{
-		fmt.Sprintf("dateRange.start.year=%d", dateRange.Start.Year),
-		fmt.Sprintf("dateRange.start.month=%d", dateRange.Start.Month),
-		fmt.Sprintf("dateRange.start.day=%d", dateRange.Start.Day),
+func (qb *QueryBuilder) buildDateRangeParam(dateRange DateRange) string {
+	start := fmt.Sprintf("(year:%d,month:%d,day:%d)", dateRange.Start.Year, dateRange.Start.Month, dateRange.Start.Day)
+	if dateRange.End == nil {
+		return fmt.Sprintf("(start:%s)", start)
 	}
 
-	if dateRange.End != nil {
-		params = append(params,
-			fmt.Sprintf("dateRange.end.year=%d", dateRange.End.Year),
-			fmt.Sprintf("dateRange.end.month=%d", dateRange.End.Month),
-			fmt.Sprintf("dateRange.end.day=%d", dateRange.End.Day),
-		)
-	}
-
-	return params
+	end := fmt.Sprintf("(year:%d,month:%d,day:%d)", dateRange.End.Year, dateRange.End.Month, dateRange.End.Day)
+	return fmt.Sprintf("(start:%s,end:%s)", start, end)
 }

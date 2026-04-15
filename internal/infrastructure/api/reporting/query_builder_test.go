@@ -64,7 +64,7 @@ func TestBuildAnalyticsQuery_UsesPlainEnumSerialization(t *testing.T) {
 	}
 }
 
-func TestBuildAnalyticsQuery_UsesDottedDateRangeSerialization(t *testing.T) {
+func TestBuildAnalyticsQuery_UsesRestLiDateRangeSerialization(t *testing.T) {
 	qb := NewQueryBuilder("https://api.linkedin.com/rest")
 
 	query := qb.BuildAnalyticsQuery(AnalyticsInput{
@@ -77,21 +77,26 @@ func TestBuildAnalyticsQuery_UsesDottedDateRangeSerialization(t *testing.T) {
 		Fields:          []string{"impressions"},
 	})
 
-	expected := []string{
-		"dateRange.start.year=2025",
-		"dateRange.start.month=1",
-		"dateRange.start.day=1",
-		"dateRange.end.year=2026",
-		"dateRange.end.month=4",
-		"dateRange.end.day=15",
+	expected := "dateRange=(start:(year:2025,month:1,day:1),end:(year:2026,month:4,day:15))"
+	if !strings.Contains(query, expected) {
+		t.Fatalf("expected RestLi dateRange %q in query, got: %s", expected, query)
 	}
-	for _, part := range expected {
-		if !strings.Contains(query, part) {
-			t.Fatalf("expected %q in query, got: %s", part, query)
-		}
-	}
+}
 
-	if strings.Contains(query, "dateRange=(") {
-		t.Fatalf("expected no tuple-style dateRange serialization, got query: %s", query)
+func TestBuildAnalyticsQuery_UsesRestLiDateRangeStartOnlySerialization(t *testing.T) {
+	qb := NewQueryBuilder("https://api.linkedin.com/rest")
+
+	query := qb.BuildAnalyticsQuery(AnalyticsInput{
+		AccountID: "512247261",
+		DateRange: DateRange{
+			Start: Date{Year: 2025, Month: 1, Day: 1},
+		},
+		TimeGranularity: "ALL",
+		Fields:          []string{"impressions"},
+	})
+
+	expected := "dateRange=(start:(year:2025,month:1,day:1))"
+	if !strings.Contains(query, expected) {
+		t.Fatalf("expected RestLi dateRange %q in query, got: %s", expected, query)
 	}
 }
