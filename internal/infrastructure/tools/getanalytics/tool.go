@@ -28,11 +28,12 @@ func NewTool(repository *reporting.Repository, connectURL string) *Tool {
 func (t *Tool) GetAnalytics(ctx context.Context, req *mcp.CallToolRequest, input dto.Input) (*mcp.CallToolResult, dto.Output, error) {
 	result := &mcp.CallToolResult{}
 
-	if err := t.validateInput(input); err != nil {
+	normalizedInput, err := t.validateAndNormalizeInput(input)
+	if err != nil {
 		return result, dto.Output{}, fmt.Errorf("input validation failed: %w", err)
 	}
 
-	analyticsInput := t.convertInput(input)
+	analyticsInput := t.convertInput(normalizedInput)
 
 	analyticsResult, err := t.repository.GetAnalytics(ctx, analyticsInput)
 	if err != nil {
@@ -44,25 +45,25 @@ func (t *Tool) GetAnalytics(ctx context.Context, req *mcp.CallToolRequest, input
 	return result, output, nil
 }
 
-func (t *Tool) validateInput(input dto.Input) error {
+func (t *Tool) validateAndNormalizeInput(input dto.Input) (dto.Input, error) {
 	// Validate AccountID
 	if input.AccountID == "" {
-		return fmt.Errorf("accountID is required")
+		return dto.Input{}, fmt.Errorf("accountID is required")
 	}
 	input.AccountID = strings.TrimSpace(input.AccountID)
 	if input.AccountID == "" {
-		return fmt.Errorf("accountID cannot be empty or whitespace only")
+		return dto.Input{}, fmt.Errorf("accountID cannot be empty or whitespace only")
 	}
 
 	// Validate required fields
 	if input.DateRangeStart.Year == 0 {
-		return fmt.Errorf("dateRangeStart is required")
+		return dto.Input{}, fmt.Errorf("dateRangeStart is required")
 	}
 	if input.TimeGranularity == "" {
-		return fmt.Errorf("timeGranularity is required")
+		return dto.Input{}, fmt.Errorf("timeGranularity is required")
 	}
 	if len(input.Fields) == 0 {
-		return fmt.Errorf("fields is required and cannot be empty")
+		return dto.Input{}, fmt.Errorf("fields is required and cannot be empty")
 	}
 
 	// Validate time granularity
@@ -73,7 +74,7 @@ func (t *Tool) validateInput(input dto.Input) error {
 		"YEARLY":  true,
 	}
 	if !validGranularities[input.TimeGranularity] {
-		return fmt.Errorf("invalid timeGranularity: %s. Must be one of: ALL, DAILY, MONTHLY, YEARLY", input.TimeGranularity)
+		return dto.Input{}, fmt.Errorf("invalid timeGranularity: %s. Must be one of: ALL, DAILY, MONTHLY, YEARLY", input.TimeGranularity)
 	}
 
 	// Validate pivot values
@@ -102,7 +103,7 @@ func (t *Tool) validateInput(input dto.Input) error {
 		"EVENT_STAGE":                    true,
 	}
 	if input.Pivot != "" && !validPivots[input.Pivot] {
-		return fmt.Errorf("invalid pivot: %s", input.Pivot)
+		return dto.Input{}, fmt.Errorf("invalid pivot: %s", input.Pivot)
 	}
 
 	// Validate campaign type
@@ -113,7 +114,7 @@ func (t *Tool) validateInput(input dto.Input) error {
 		"DYNAMIC":           true,
 	}
 	if input.CampaignType != "" && !validCampaignTypes[input.CampaignType] {
-		return fmt.Errorf("invalid campaignType: %s. Must be one of: TEXT_AD, SPONSORED_UPDATES, SPONSORED_INMAILS, DYNAMIC", input.CampaignType)
+		return dto.Input{}, fmt.Errorf("invalid campaignType: %s. Must be one of: TEXT_AD, SPONSORED_UPDATES, SPONSORED_INMAILS, DYNAMIC", input.CampaignType)
 	}
 
 	// Validate sort fields
@@ -127,12 +128,12 @@ func (t *Tool) validateInput(input dto.Input) error {
 		"EXTERNAL_WEBSITE_CONVERSIONS": true,
 	}
 	if input.SortByField != "" && !validSortFields[input.SortByField] {
-		return fmt.Errorf("invalid sortByField: %s", input.SortByField)
+		return dto.Input{}, fmt.Errorf("invalid sortByField: %s", input.SortByField)
 	}
 
 	// Validate sort order
 	if input.SortByOrder != "" && input.SortByOrder != "ASCENDING" && input.SortByOrder != "DESCENDING" {
-		return fmt.Errorf("sortByOrder must be either ASCENDING or DESCENDING")
+		return dto.Input{}, fmt.Errorf("sortByOrder must be either ASCENDING or DESCENDING")
 	}
 
 	// Validate date range
@@ -140,7 +141,7 @@ func (t *Tool) validateInput(input dto.Input) error {
 		if input.DateRangeEnd.Year < input.DateRangeStart.Year ||
 			(input.DateRangeEnd.Year == input.DateRangeStart.Year && input.DateRangeEnd.Month < input.DateRangeStart.Month) ||
 			(input.DateRangeEnd.Year == input.DateRangeStart.Year && input.DateRangeEnd.Month == input.DateRangeStart.Month && input.DateRangeEnd.Day < input.DateRangeStart.Day) {
-			return fmt.Errorf("dateRangeEnd must be after dateRangeStart")
+			return dto.Input{}, fmt.Errorf("dateRangeEnd must be after dateRangeStart")
 		}
 	}
 
@@ -175,11 +176,11 @@ func (t *Tool) validateInput(input dto.Input) error {
 	}
 
 	if len(normalizedFields) == 0 {
-		return fmt.Errorf("no valid fields after normalization")
+		return dto.Input{}, fmt.Errorf("no valid fields after normalization")
 	}
 
 	input.Fields = normalizedFields
-	return nil
+	return input, nil
 }
 
 func (t *Tool) convertInput(input dto.Input) reporting.AnalyticsInput {
@@ -252,6 +253,13 @@ func (t *Tool) normalizeFieldName(field string) string {
 		"CONVERSIONS":             "externalWebsiteConversions",
 		"SPEND_IN_LOCAL_CURRENCY": "costInLocalCurrency",
 		"SPEND":                   "costInLocalCurrency",
+		"COST":                    "costInLocalCurrency",
+		"LEADS":                   "oneClickLeads",
+		"ONE_CLICK_LEAD_FORM_OPENS": "oneClickLeadFormOpens",
+		"UNIQUE_IMPRESSIONS":      "approximateMemberReach",
+		"APPROXIMATE_UNIQUE_IMPRESSIONS": "approximateMemberReach",
+		"TOTAL_ENGAGEMENTS":       "totalEngagements",
+		"ENGAGEMENTS":             "totalEngagements",
 		"CLICK_THRU_RATE":         "", // Not a direct field, would need calculation
 		"CTR":                     "", // Not a direct field, would need calculation
 		"CPA":                     "", // Not a direct field, would need calculation
