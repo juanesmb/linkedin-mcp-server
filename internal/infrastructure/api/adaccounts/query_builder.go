@@ -53,12 +53,12 @@ func (qb *QueryBuilder) buildQueryParams(input SearchInput) string {
 	addList("reference", input.References, false)
 	addList("name", input.Names, true)
 
-	if input.Test != nil {
-		searchParts = append(searchParts, fmt.Sprintf("test:%t", *input.Test))
-	}
-
 	if len(searchParts) > 0 {
 		params = append(params, fmt.Sprintf("search=(%s)", strings.Join(searchParts, ",")))
+	}
+	if input.Test != nil {
+		// LinkedIn expects this as a dedicated finder parameter, not inside search=(...).
+		params = append(params, fmt.Sprintf("search.test=%t", *input.Test))
 	}
 
 	if input.Start > 0 {
