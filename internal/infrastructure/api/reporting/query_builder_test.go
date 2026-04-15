@@ -100,3 +100,27 @@ func TestBuildAnalyticsQuery_UsesRestLiDateRangeStartOnlySerialization(t *testin
 		t.Fatalf("expected RestLi dateRange %q in query, got: %s", expected, query)
 	}
 }
+
+func TestBuildAnalyticsQuery_UsesRestLiListFormattingForFacets(t *testing.T) {
+	qb := NewQueryBuilder("https://api.linkedin.com/rest")
+
+	query := qb.BuildAnalyticsQuery(AnalyticsInput{
+		AccountID: "512247261",
+		Campaigns: []string{"urn:li:sponsoredCampaign:474763193"},
+		DateRange: DateRange{
+			Start: Date{Year: 2025, Month: 1, Day: 1},
+		},
+		TimeGranularity: "ALL",
+		Fields:          []string{"impressions", "clicks", "costInLocalCurrency"},
+	})
+
+	if !strings.Contains(query, "accounts=List(urn:li:sponsoredAccount:512247261)") {
+		t.Fatalf("expected RestLi accounts facet format, got query: %s", query)
+	}
+	if !strings.Contains(query, "campaigns=List(urn:li:sponsoredCampaign:474763193)") {
+		t.Fatalf("expected RestLi campaigns facet format, got query: %s", query)
+	}
+	if strings.Contains(query, "urn%3Ali%3AsponsoredAccount") || strings.Contains(query, "urn%3Ali%3AsponsoredCampaign") {
+		t.Fatalf("expected unescaped RestLi list values, got query: %s", query)
+	}
+}
