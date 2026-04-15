@@ -28,44 +28,17 @@ func (qb *QueryBuilder) buildQueryParams(input AnalyticsInput) string {
 	// Required parameters
 	params = append(params, "q=analytics")
 
-	// Pivot parameter - supports both formats: pivot=MEMBER_COMPANY or pivot=(value:CAMPAIGN)
+	// Pivot parameter as plain enum symbol.
 	if input.Pivot != "" {
-		// Use simple format for certain pivot values
-		simplePivots := map[string]bool{
-			"MEMBER_COMPANY":      true,
-			"MEMBER_INDUSTRY":     true,
-			"MEMBER_SENIORITY":    true,
-			"MEMBER_JOB_TITLE":    true,
-			"MEMBER_JOB_FUNCTION": true,
-			"MEMBER_COUNTRY_V2":   true,
-			"MEMBER_REGION_V2":    true,
-		}
-
-		if simplePivots[input.Pivot] {
-			params = append(params, fmt.Sprintf("pivot=%s", url.QueryEscape(input.Pivot)))
-		} else {
-			params = append(params, fmt.Sprintf("pivot=(value:%s)", url.QueryEscape(input.Pivot)))
-		}
+		params = append(params, fmt.Sprintf("pivot=%s", url.QueryEscape(input.Pivot)))
 	}
 
-	// Date range - based on sample: dateRange=(start:(year:2024,month:1,day:1))
-	startDate := qb.formatDate(input.DateRange.Start)
-	params = append(params, fmt.Sprintf("dateRange=(start:%s)", startDate))
+	// Date range as dotted nested query keys.
+	params = append(params, qb.buildDateRangeParams(input.DateRange)...)
 
-	if input.DateRange.End != nil {
-		endDate := qb.formatDate(*input.DateRange.End)
-		// Replace the existing dateRange parameter
-		for i, param := range params {
-			if strings.HasPrefix(param, "dateRange=") {
-				params[i] = fmt.Sprintf("dateRange=(start:%s,end:%s)", startDate, endDate)
-				break
-			}
-		}
-	}
-
-	// Time granularity - supports both formats: timeGranularity=ALL or timeGranularity=(value:ALL)
+	// Time granularity as plain enum symbol.
 	if input.TimeGranularity != "" {
-		params = append(params, fmt.Sprintf("timeGranularity=(value:%s)", url.QueryEscape(input.TimeGranularity)))
+		params = append(params, fmt.Sprintf("timeGranularity=%s", url.QueryEscape(input.TimeGranularity)))
 	}
 
 	// Facets - at least one is required (accounts come before pivot in the example)
@@ -119,14 +92,28 @@ func (qb *QueryBuilder) buildQueryParams(input AnalyticsInput) string {
 	return strings.Join(params, "&")
 }
 
-func (qb *QueryBuilder) formatDate(date Date) string {
-	return fmt.Sprintf("(day:%d,month:%d,year:%d)", date.Day, date.Month, date.Year)
-}
-
 func (qb *QueryBuilder) buildListParam(items []string) string {
 	encoded := make([]string, len(items))
 	for i, item := range items {
 		encoded[i] = url.QueryEscape(item)
 	}
 	return strings.Join(encoded, ",")
+}
+
+func (qb *QueryBuilder) buildDateRangeParams(dateRange DateRange) []string {
+	params := []string{
+		fmt.Sprintf("dateRange.start.year=%d", dateRange.Start.Year),
+		fmt.Sprintf("dateRange.start.month=%d", dateRange.Start.Month),
+		fmt.Sprintf("dateRange.start.day=%d", dateRange.Start.Day),
+	}
+
+	if dateRange.End != nil {
+		params = append(params,
+			fmt.Sprintf("dateRange.end.year=%d", dateRange.End.Year),
+			fmt.Sprintf("dateRange.end.month=%d", dateRange.End.Month),
+			fmt.Sprintf("dateRange.end.day=%d", dateRange.End.Day),
+		)
+	}
+
+	return params
 }

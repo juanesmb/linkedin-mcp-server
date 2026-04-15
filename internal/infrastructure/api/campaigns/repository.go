@@ -38,15 +38,15 @@ type Logger interface {
 
 type Repository struct {
 	gatewayClient *gateway.Client
-	queryBuilder  *QueryBuilder
-	logger        Logger
+	queryBuilder *QueryBuilder
+	logger       Logger
 }
 
 func NewRepository(gatewayClient *gateway.Client, queryBuilder *QueryBuilder, logger Logger) *Repository {
 	return &Repository{
 		gatewayClient: gatewayClient,
-		queryBuilder:  queryBuilder,
-		logger:        logger,
+		queryBuilder: queryBuilder,
+		logger:       logger,
 	}
 }
 

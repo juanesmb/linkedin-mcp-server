@@ -26,9 +26,9 @@ import (
 var serverInstructions string
 
 type Components struct {
-	httpClient    api.Client
-	gatewayClient *gateway.Client
-	logger        infrastructurelog.Logger
+	httpClient     api.Client
+	gatewayClient  *gateway.Client
+	logger         infrastructurelog.Logger
 }
 
 func initServer(configs Configs, components Components) *mcp.Server {
