@@ -22,7 +22,7 @@ func TestBuildAnalyticsQuery_DoesNotInjectPivotValuesWithoutPivot(t *testing.T) 
 	}
 }
 
-func TestBuildAnalyticsQuery_InjectsPivotValuesWithPivot(t *testing.T) {
+func TestBuildAnalyticsQuery_DoesNotInjectPivotValuesWithPivot(t *testing.T) {
 	qb := NewQueryBuilder("https://api.linkedin.com/rest")
 
 	query := qb.BuildAnalyticsQuery(AnalyticsInput{
@@ -35,7 +35,7 @@ func TestBuildAnalyticsQuery_InjectsPivotValuesWithPivot(t *testing.T) {
 		Fields:          []string{"impressions", "clicks"},
 	})
 
-	if !strings.Contains(query, "pivotValues") {
-		t.Fatalf("expected pivotValues when pivot is set, got query: %s", query)
+	if strings.Contains(query, "pivotValues") {
+		t.Fatalf("expected no implicit pivotValues injection, got query: %s", query)
 	}
 }
