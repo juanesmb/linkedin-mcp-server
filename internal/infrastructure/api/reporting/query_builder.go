@@ -108,24 +108,23 @@ func (qb *QueryBuilder) buildQueryParams(input AnalyticsInput) string {
 	}
 
 	// Fields parameter (required)
-	// Always include pivotValues to ensure pivot identifiers are returned
 	fields := make([]string, 0, len(input.Fields)+1)
 	fields = append(fields, input.Fields...)
-	
-	// Check if pivotValues is already in the fields list
-	hasPivotValues := false
-	for _, field := range fields {
-		if field == "pivotValues" {
-			hasPivotValues = true
-			break
+
+	// Include pivotValues only when a pivot is explicitly requested.
+	if input.Pivot != "" {
+		hasPivotValues := false
+		for _, field := range fields {
+			if field == "pivotValues" {
+				hasPivotValues = true
+				break
+			}
+		}
+		if !hasPivotValues {
+			fields = append(fields, "pivotValues")
 		}
 	}
-	
-	// Add pivotValues if not already present
-	if !hasPivotValues {
-		fields = append(fields, "pivotValues")
-	}
-	
+
 	if len(fields) > 0 {
 		fieldsList := strings.Join(fields, ",")
 		params = append(params, fmt.Sprintf("fields=%s", fieldsList))
