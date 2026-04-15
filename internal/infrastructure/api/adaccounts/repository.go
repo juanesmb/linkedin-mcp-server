@@ -79,6 +79,9 @@ func (r *Repository) SearchAdAccounts(ctx context.Context, input SearchInput) (*
 	if gateway.IsLinkedInNotConnectedResponse(response) {
 		return nil, gateway.ErrLinkedInNotConnected
 	}
+	if validationErr, ok := gateway.ParseLinkedInParamValidationResponse(response); ok {
+		return nil, validationErr
+	}
 
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		bodyString := strings.TrimSpace(string(response.Body))

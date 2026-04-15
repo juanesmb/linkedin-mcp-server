@@ -23,3 +23,20 @@ func TestWrapToolExecutionError_GenericError(t *testing.T) {
 	require.Contains(t, err.Error(), "failed to search campaigns")
 	require.Contains(t, err.Error(), "gateway timed out")
 }
+
+func TestWrapToolExecutionError_ValidationError(t *testing.T) {
+	err := WrapToolExecutionError(
+		"search ad accounts",
+		&gateway.LinkedInParamValidationError{
+			Message: "Invalid param",
+			InputErrors: []gateway.LinkedInInputError{
+				{FieldPath: "search", Description: "Invalid value for param", Code: "PARAM_INVALID"},
+			},
+		},
+		"https://app.example.com/connections",
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "LinkedIn rejected the request parameters")
+	require.Contains(t, err.Error(), "Field `search`")
+	require.Contains(t, err.Error(), "retry this tool call")
+}
