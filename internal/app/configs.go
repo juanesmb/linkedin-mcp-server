@@ -27,6 +27,7 @@ type AuthConfig struct {
 type GatewayConfig struct {
 	BaseURL        string
 	InternalSecret string
+	ConnectURL     string
 }
 
 type ServerConfig struct {
@@ -68,6 +69,7 @@ func readConfigs() Configs {
 		GatewayConfig: GatewayConfig{
 			BaseURL:        strings.TrimSpace(os.Getenv("JUMON_GATEWAY_BASE_URL")),
 			InternalSecret: strings.TrimSpace(os.Getenv("JUMON_GATEWAY_INTERNAL_SECRET")),
+			ConnectURL:     deriveConnectURL(strings.TrimSpace(os.Getenv("JUMON_GATEWAY_BASE_URL")), strings.TrimSpace(os.Getenv("JUMON_CONNECT_URL"))),
 		},
 		ServerConfig: ServerConfig{
 			BindAddress: host + ":" + port,
@@ -75,6 +77,16 @@ func readConfigs() Configs {
 			PublicURL:   strings.TrimSpace(os.Getenv("PUBLIC_BASE_URL")),
 		},
 	}
+}
+
+func deriveConnectURL(gatewayBaseURL, explicitConnectURL string) string {
+	if explicitConnectURL != "" {
+		return explicitConnectURL
+	}
+	if gatewayBaseURL == "" {
+		return "/connections"
+	}
+	return strings.TrimRight(gatewayBaseURL, "/") + "/connections"
 }
 
 func envOrDefault(key, fallback string) string {

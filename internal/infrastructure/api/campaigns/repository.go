@@ -61,8 +61,15 @@ func (r *Repository) SearchCampaigns(ctx context.Context, input SearchInput) (*S
 		return nil, fmt.Errorf("missing authenticated user in request context")
 	}
 
-	if _, err := r.gatewayClient.GetLinkedInConnection(ctx, userID); err != nil {
+	connectionResponse, err := r.gatewayClient.GetLinkedInConnection(ctx, userID)
+	if err != nil {
 		return nil, fmt.Errorf("failed to fetch LinkedIn connection state from gateway: %w", err)
+	}
+	if gateway.IsLinkedInNotConnectedResponse(connectionResponse) {
+		return nil, gateway.ErrLinkedInNotConnected
+	}
+	if connectionResponse.StatusCode < 200 || connectionResponse.StatusCode >= 300 {
+		return nil, fmt.Errorf("failed to fetch LinkedIn connection state from gateway: status %d", connectionResponse.StatusCode)
 	}
 
 	response, err := r.gatewayClient.ProxyLinkedInOrRefresh(ctx, userID, resourcePath, query)
@@ -72,6 +79,9 @@ func (r *Repository) SearchCampaigns(ctx context.Context, input SearchInput) (*S
 			logTagError: err.Error(),
 		})
 		return nil, fmt.Errorf(errFmtFailedRequest, err)
+	}
+	if gateway.IsLinkedInNotConnectedResponse(response) {
+		return nil, gateway.ErrLinkedInNotConnected
 	}
 
 	if response.StatusCode < 200 || response.StatusCode >= 300 {

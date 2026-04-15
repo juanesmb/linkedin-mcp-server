@@ -8,17 +8,20 @@ import (
 
 	"linkedin-mcp/internal/infrastructure/api/reporting"
 	"linkedin-mcp/internal/infrastructure/tools/getanalytics/dto"
+	"linkedin-mcp/internal/infrastructure/tools/toolerrors"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type Tool struct {
 	repository *reporting.Repository
+	connectURL string
 }
 
-func NewTool(repository *reporting.Repository) *Tool {
+func NewTool(repository *reporting.Repository, connectURL string) *Tool {
 	return &Tool{
 		repository: repository,
+		connectURL: connectURL,
 	}
 }
 
@@ -33,7 +36,7 @@ func (t *Tool) GetAnalytics(ctx context.Context, req *mcp.CallToolRequest, input
 
 	analyticsResult, err := t.repository.GetAnalytics(ctx, analyticsInput)
 	if err != nil {
-		return result, dto.Output{}, fmt.Errorf("failed to get analytics: %w", err)
+		return result, dto.Output{}, toolerrors.WrapToolExecutionError("get analytics", err, t.connectURL)
 	}
 
 	output := t.convertOutput(analyticsResult)

@@ -84,7 +84,7 @@ func initSearchCampaignsTool(configs Configs, components Components) *searchcamp
 
 	campaignsRepository := campaigns.NewRepository(components.gatewayClient, queryBuilder, components.logger)
 
-	return searchcampaigns.NewTool(campaignsRepository)
+	return searchcampaigns.NewTool(campaignsRepository, configs.GatewayConfig.ConnectURL)
 }
 
 func initSearchAdAccountsTool(configs Configs, components Components) *searchadaccounts.Tool {
@@ -92,7 +92,7 @@ func initSearchAdAccountsTool(configs Configs, components Components) *searchada
 
 	repository := adaccountsapi.NewRepository(components.gatewayClient, queryBuilder, components.logger)
 
-	return searchadaccounts.NewTool(repository)
+	return searchadaccounts.NewTool(repository, configs.GatewayConfig.ConnectURL)
 }
 
 func initReportingTool(configs Configs, components Components) *getanalytics.Tool {
@@ -100,7 +100,7 @@ func initReportingTool(configs Configs, components Components) *getanalytics.Too
 
 	reportingRepository := reportingapi.NewRepository(components.gatewayClient, queryBuilder, components.logger)
 
-	return getanalytics.NewTool(reportingRepository)
+	return getanalytics.NewTool(reportingRepository, configs.GatewayConfig.ConnectURL)
 }
 
 func initAnalyticsResource() *queryparameters.Resource {

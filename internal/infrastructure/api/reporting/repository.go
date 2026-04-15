@@ -42,15 +42,15 @@ type Logger interface {
 
 type Repository struct {
 	gatewayClient *gateway.Client
-	queryBuilder *QueryBuilder
-	logger       Logger
+	queryBuilder  *QueryBuilder
+	logger        Logger
 }
 
 func NewRepository(gatewayClient *gateway.Client, queryBuilder *QueryBuilder, logger Logger) *Repository {
 	return &Repository{
 		gatewayClient: gatewayClient,
-		queryBuilder: queryBuilder,
-		logger:       logger,
+		queryBuilder:  queryBuilder,
+		logger:        logger,
 	}
 }
 
@@ -65,8 +65,15 @@ func (r *Repository) GetAnalytics(ctx context.Context, input AnalyticsInput) (*A
 		return nil, fmt.Errorf("missing authenticated user in request context")
 	}
 
-	if _, err := r.gatewayClient.GetLinkedInConnection(ctx, userID); err != nil {
+	connectionResponse, err := r.gatewayClient.GetLinkedInConnection(ctx, userID)
+	if err != nil {
 		return nil, fmt.Errorf("failed to fetch LinkedIn connection state from gateway: %w", err)
+	}
+	if gateway.IsLinkedInNotConnectedResponse(connectionResponse) {
+		return nil, gateway.ErrLinkedInNotConnected
+	}
+	if connectionResponse.StatusCode < 200 || connectionResponse.StatusCode >= 300 {
+		return nil, fmt.Errorf("failed to fetch LinkedIn connection state from gateway: status %d", connectionResponse.StatusCode)
 	}
 
 	response, err := r.gatewayClient.ProxyLinkedInOrRefresh(ctx, userID, resourcePath, query)
@@ -76,6 +83,9 @@ func (r *Repository) GetAnalytics(ctx context.Context, input AnalyticsInput) (*A
 			logTagError: err.Error(),
 		})
 		return nil, fmt.Errorf(errFmtFailedRequest, err)
+	}
+	if gateway.IsLinkedInNotConnectedResponse(response) {
+		return nil, gateway.ErrLinkedInNotConnected
 	}
 
 	if response.StatusCode < 200 || response.StatusCode >= 300 {

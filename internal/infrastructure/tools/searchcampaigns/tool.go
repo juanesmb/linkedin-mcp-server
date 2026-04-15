@@ -7,17 +7,20 @@ import (
 
 	"linkedin-mcp/internal/infrastructure/api/campaigns"
 	"linkedin-mcp/internal/infrastructure/tools/searchcampaigns/dto"
+	"linkedin-mcp/internal/infrastructure/tools/toolerrors"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type Tool struct {
 	repository *campaigns.Repository
+	connectURL string
 }
 
-func NewTool(repository *campaigns.Repository) *Tool {
+func NewTool(repository *campaigns.Repository, connectURL string) *Tool {
 	return &Tool{
 		repository: repository,
+		connectURL: connectURL,
 	}
 }
 
@@ -32,7 +35,7 @@ func (t *Tool) SearchCampaigns(ctx context.Context, req *mcp.CallToolRequest, in
 
 	searchResult, err := t.repository.SearchCampaigns(ctx, searchInput)
 	if err != nil {
-		return result, dto.Output{}, fmt.Errorf("failed to search campaigns: %w", err)
+		return result, dto.Output{}, toolerrors.WrapToolExecutionError("search campaigns", err, t.connectURL)
 	}
 
 	output := dto.Output{
