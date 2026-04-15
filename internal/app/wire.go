@@ -1,8 +1,8 @@
 package app
 
 import (
+	_ "embed"
 	"log"
-	"os"
 	"strings"
 
 	"linkedin-mcp/internal/infrastructure/api"
@@ -22,9 +22,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-const (
-	serverInstructionsFilePath = "internal/app/instructions/server_instructions.md"
-)
+//go:embed instructions/server_instructions.md
+var serverInstructions string
 
 type Components struct {
 	httpClient    api.Client
@@ -113,14 +112,9 @@ func initAnalyticsMetricsResource() *metrics.Resource {
 }
 
 func loadServerInstructions() string {
-	content, err := os.ReadFile(serverInstructionsFilePath)
-	if err != nil {
-		log.Fatalf("failed to read MCP instructions file %q: %v", serverInstructionsFilePath, err)
-	}
-
-	instructions := strings.TrimSpace(string(content))
+	instructions := strings.TrimSpace(serverInstructions)
 	if instructions == "" {
-		log.Fatalf("MCP instructions file is empty: %q", serverInstructionsFilePath)
+		log.Fatal("embedded MCP instructions file is empty: internal/app/instructions/server_instructions.md")
 	}
 
 	return instructions
