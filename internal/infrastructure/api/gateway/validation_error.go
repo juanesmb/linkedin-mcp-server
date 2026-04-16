@@ -56,15 +56,38 @@ func ParseLinkedInParamValidationResponse(response *api.Response) (*LinkedInPara
 	}
 
 	code, _ := payload["code"].(string)
-	if !strings.EqualFold(strings.TrimSpace(code), "LINKEDIN_PARAM_INVALID") {
-		return nil, false
+	normalizedCode := strings.ToUpper(strings.TrimSpace(code))
+
+	// Strict param validation payload (preferred).
+	if normalizedCode != "LINKEDIN_PARAM_INVALID" {
+		// Generic LinkedIn 400s sometimes come through as LINKEDIN_API_ERROR with a message like:
+		// "Invalid query parameters passed to request".
+		// Treat these as correctable parameter issues so tools can surface actionable context.
+		if normalizedCode != "LINKEDIN_API_ERROR" {
+			return nil, false
+		}
 	}
 
 	message, _ := payload["message"].(string)
+	trimmedMessage := strings.TrimSpace(message)
+	if normalizedCode == "LINKEDIN_API_ERROR" {
+		lower := strings.ToLower(trimmedMessage)
+		if !strings.Contains(lower, "invalid query parameters") {
+			return nil, false
+		}
+	}
+
 	inputErrors := parseInputErrors(payload["inputErrors"])
+	requestID := strings.TrimSpace(asString(payload["request_id"]))
+	if requestID == "" {
+		requestID = strings.TrimSpace(asString(payload["requestId"]))
+	}
+	if requestID != "" {
+		trimmedMessage = strings.TrimSpace(trimmedMessage + " (request_id: " + requestID + ")")
+	}
 
 	return &LinkedInParamValidationError{
-		Message:        strings.TrimSpace(message),
+		Message:        trimmedMessage,
 		ProviderStatus: response.StatusCode,
 		InputErrors:    inputErrors,
 	}, true

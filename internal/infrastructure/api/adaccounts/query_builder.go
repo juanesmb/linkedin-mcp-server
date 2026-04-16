@@ -24,10 +24,9 @@ func (qb *QueryBuilder) BuildSearchAdAccountsQuery(input SearchInput) string {
 
 func (qb *QueryBuilder) buildQueryParams(input SearchInput) string {
 	params := []string{"q=search"}
-
 	var searchParts []string
 
-	addList := func(field string, values []string, encode bool) {
+	addSearchList := func(field string, values []string, encode bool) {
 		if len(values) == 0 {
 			return
 		}
@@ -38,7 +37,7 @@ func (qb *QueryBuilder) buildQueryParams(input SearchInput) string {
 				continue
 			}
 			if encode {
-				trimmed = url.PathEscape(trimmed)
+				trimmed = url.QueryEscape(trimmed)
 			}
 			cleaned = append(cleaned, trimmed)
 		}
@@ -48,14 +47,15 @@ func (qb *QueryBuilder) buildQueryParams(input SearchInput) string {
 		searchParts = append(searchParts, fmt.Sprintf("%s:(values:List(%s))", field, strings.Join(cleaned, ",")))
 	}
 
-	addList("status", input.Status, false)
-	addList("id", input.AccountIDs, false)
-	addList("reference", input.References, false)
-	addList("name", input.Names, true)
+	addSearchList("status", input.Status, false)
+	addSearchList("id", input.AccountIDs, false)
+	addSearchList("reference", input.References, false)
+	addSearchList("name", input.Names, true)
 
 	if len(searchParts) > 0 {
 		params = append(params, fmt.Sprintf("search=(%s)", strings.Join(searchParts, ",")))
 	}
+
 	if input.Test != nil {
 		// LinkedIn expects this as a dedicated finder parameter, not inside search=(...).
 		params = append(params, fmt.Sprintf("search.test=%t", *input.Test))

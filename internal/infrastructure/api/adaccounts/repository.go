@@ -80,6 +80,13 @@ func (r *Repository) SearchAdAccounts(ctx context.Context, input SearchInput) (*
 		return nil, gateway.ErrLinkedInNotConnected
 	}
 	if validationErr, ok := gateway.ParseLinkedInParamValidationResponse(response); ok {
+		validationErr.Message = strings.TrimSpace(validationErr.Message + " request_url=" + requestURL)
+		if len(validationErr.InputErrors) == 0 {
+			bodyString := strings.TrimSpace(string(response.Body))
+			if bodyString != "" {
+				validationErr.Message = strings.TrimSpace(validationErr.Message + " provider_payload=" + bodyString)
+			}
+		}
 		return nil, validationErr
 	}
 

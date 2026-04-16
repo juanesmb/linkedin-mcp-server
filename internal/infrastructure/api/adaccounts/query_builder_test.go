@@ -23,6 +23,6 @@ func TestBuildSearchAdAccountsQuery_SetsTestAsDedicatedParam(t *testing.T) {
 		t.Fatalf("expected dedicated search.test param, got: %s", query)
 	}
 	if !strings.Contains(query, "search=(status:(values:List(ACTIVE)))") {
-		t.Fatalf("expected status search composite, got: %s", query)
+		t.Fatalf("expected status inside search composite, got: %s", query)
 	}
 }
