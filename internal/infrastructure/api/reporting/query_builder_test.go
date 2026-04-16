@@ -114,13 +114,38 @@ func TestBuildAnalyticsQuery_UsesRestLiListFormattingForFacets(t *testing.T) {
 		Fields:          []string{"impressions", "clicks", "costInLocalCurrency"},
 	})
 
-	if !strings.Contains(query, "accounts=List(urn:li:sponsoredAccount:512247261)") {
+	if !strings.Contains(query, "accounts=List(urn%3Ali%3AsponsoredAccount%3A512247261)") {
 		t.Fatalf("expected RestLi accounts facet format, got query: %s", query)
 	}
-	if !strings.Contains(query, "campaigns=List(urn:li:sponsoredCampaign:474763193)") {
+	if !strings.Contains(query, "campaigns=List(urn%3Ali%3AsponsoredCampaign%3A474763193)") {
 		t.Fatalf("expected RestLi campaigns facet format, got query: %s", query)
 	}
-	if strings.Contains(query, "urn%3Ali%3AsponsoredAccount") || strings.Contains(query, "urn%3Ali%3AsponsoredCampaign") {
-		t.Fatalf("expected unescaped RestLi list values, got query: %s", query)
+	if strings.Contains(query, "accounts=List(urn:li:sponsoredAccount:") || strings.Contains(query, "campaigns=List(urn:li:sponsoredCampaign:") {
+		t.Fatalf("expected encoded URNs inside RestLi lists, got query: %s", query)
+	}
+}
+
+func TestBuildAnalyticsQuery_MergesDefaultAndExplicitAccountsIntoSingleFacet(t *testing.T) {
+	qb := NewQueryBuilder("https://api.linkedin.com/rest")
+
+	query := qb.BuildAnalyticsQuery(AnalyticsInput{
+		AccountID: "512247261",
+		Accounts: []string{
+			"urn:li:sponsoredAccount:512247261",
+			"urn:li:sponsoredAccount:999999999",
+		},
+		DateRange: DateRange{
+			Start: Date{Year: 2025, Month: 1, Day: 1},
+		},
+		TimeGranularity: "ALL",
+		Fields:          []string{"impressions", "clicks"},
+	})
+
+	expected := "accounts=List(urn%3Ali%3AsponsoredAccount%3A512247261,urn%3Ali%3AsponsoredAccount%3A999999999)"
+	if !strings.Contains(query, expected) {
+		t.Fatalf("expected merged accounts facet %q, got query: %s", expected, query)
+	}
+	if strings.Count(query, "accounts=List(") != 1 {
+		t.Fatalf("expected a single accounts facet, got query: %s", query)
 	}
 }

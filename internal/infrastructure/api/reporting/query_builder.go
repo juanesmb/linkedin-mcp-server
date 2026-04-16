@@ -42,9 +42,10 @@ func (qb *QueryBuilder) buildQueryParams(input AnalyticsInput) string {
 	}
 
 	// Facets - at least one is required (accounts come before pivot in the example)
-	// Always include the account from AccountID input
+	// Always include the account from AccountID input, merged with any explicit accounts facet.
 	accountURN := fmt.Sprintf("urn:li:sponsoredAccount:%s", input.AccountID)
-	params = append(params, fmt.Sprintf("accounts=List(%s)", accountURN))
+	accountFacets := mergeAccountFacets(accountURN, input.Accounts)
+	params = append(params, fmt.Sprintf("accounts=List(%s)", qb.buildListParam(accountFacets)))
 
 	if len(input.Shares) > 0 {
 		sharesList := qb.buildListParam(input.Shares)
@@ -57,10 +58,6 @@ func (qb *QueryBuilder) buildQueryParams(input AnalyticsInput) string {
 	if len(input.CampaignGroups) > 0 {
 		campaignGroupsList := qb.buildListParam(input.CampaignGroups)
 		params = append(params, fmt.Sprintf("campaignGroups=List(%s)", campaignGroupsList))
-	}
-	if len(input.Accounts) > 0 {
-		accountsList := qb.buildListParam(input.Accounts)
-		params = append(params, fmt.Sprintf("accounts=List(%s)", accountsList))
 	}
 	if len(input.Companies) > 0 {
 		companiesList := qb.buildListParam(input.Companies)
@@ -105,7 +102,7 @@ func (qb *QueryBuilder) buildListParam(items []string) string {
 		if err == nil {
 			normalized = decoded
 		}
-		encoded = append(encoded, normalized)
+		encoded = append(encoded, url.QueryEscape(normalized))
 	}
 	return strings.Join(encoded, ",")
 }
@@ -118,4 +115,28 @@ func (qb *QueryBuilder) buildDateRangeParam(dateRange DateRange) string {
 
 	end := fmt.Sprintf("(year:%d,month:%d,day:%d)", dateRange.End.Year, dateRange.End.Month, dateRange.End.Day)
 	return fmt.Sprintf("(start:%s,end:%s)", start, end)
+}
+
+func mergeAccountFacets(defaultAccount string, explicitAccounts []string) []string {
+	facets := make([]string, 0, len(explicitAccounts)+1)
+	seen := map[string]struct{}{}
+
+	add := func(value string) {
+		normalized := strings.TrimSpace(value)
+		if normalized == "" {
+			return
+		}
+		if _, exists := seen[normalized]; exists {
+			return
+		}
+		seen[normalized] = struct{}{}
+		facets = append(facets, normalized)
+	}
+
+	add(defaultAccount)
+	for _, account := range explicitAccounts {
+		add(account)
+	}
+
+	return facets
 }
