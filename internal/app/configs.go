@@ -67,9 +67,9 @@ func readConfigs() Configs {
 			AuthorizationURL: authorizationURL,
 		},
 		GatewayConfig: GatewayConfig{
-			BaseURL:        strings.TrimSpace(os.Getenv("JUMON_GATEWAY_BASE_URL")),
-			InternalSecret: strings.TrimSpace(os.Getenv("JUMON_GATEWAY_INTERNAL_SECRET")),
-			ConnectURL:     deriveConnectURL(strings.TrimSpace(os.Getenv("JUMON_GATEWAY_BASE_URL")), strings.TrimSpace(os.Getenv("JUMON_CONNECT_URL"))),
+			BaseURL:        gatewayBaseURL(),
+			InternalSecret: gatewayInternalSecret(),
+			ConnectURL:     deriveConnectURL(gatewayBaseURL(), connectURLExplicit()),
 		},
 		ServerConfig: ServerConfig{
 			BindAddress: host + ":" + port,
@@ -79,9 +79,33 @@ func readConfigs() Configs {
 	}
 }
 
+func gatewayBaseURL() string {
+	if v := strings.TrimSpace(os.Getenv("GATEWAY_BASE_URL")); v != "" {
+		return v
+	}
+	return strings.TrimSpace(os.Getenv("JUMON_GATEWAY_BASE_URL"))
+}
+
+func gatewayInternalSecret() string {
+	if v := strings.TrimSpace(os.Getenv("GATEWAY_INTERNAL_SECRET")); v != "" {
+		return v
+	}
+	return strings.TrimSpace(os.Getenv("JUMON_GATEWAY_INTERNAL_SECRET"))
+}
+
+func connectURLExplicit() string {
+	if v := strings.TrimSpace(os.Getenv("GATEWAY_CONNECT_URL")); v != "" {
+		return v
+	}
+	return strings.TrimSpace(os.Getenv("JUMON_CONNECT_URL"))
+}
+
 func deriveConnectURL(gatewayBaseURL, explicitConnectURL string) string {
 	if explicitConnectURL != "" {
 		return explicitConnectURL
+	}
+	if v := strings.TrimSpace(os.Getenv("JUMON_CONNECT_URL")); v != "" {
+		return v
 	}
 	if gatewayBaseURL == "" {
 		return "/connections"

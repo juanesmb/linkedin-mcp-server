@@ -33,16 +33,18 @@ func (c *Client) GetLinkedInConnection(ctx context.Context, userID string) (*api
 }
 
 func (c *Client) ProxyLinkedIn(ctx context.Context, userID, resourcePath string, query map[string]string) (*api.Response, error) {
-	path := fmt.Sprintf("%s/api/internal/linkedin/proxy/%s", c.baseURL, strings.TrimLeft(resourcePath, "/"))
+	path := fmt.Sprintf("%s/api/internal/providers/linkedin/proxy", c.baseURL)
 	body := map[string]interface{}{
 		"userId": userID,
+		"method": "GET",
+		"path":   strings.TrimLeft(resourcePath, "/"),
 		"query":  query,
 	}
 	return c.httpClient.Post(ctx, path, body, c.authHeaders())
 }
 
 func (c *Client) RefreshLinkedIn(ctx context.Context, userID string) (*api.Response, error) {
-	path := fmt.Sprintf("%s/api/internal/linkedin/refresh", c.baseURL)
+	path := fmt.Sprintf("%s/api/internal/providers/linkedin/refresh", c.baseURL)
 	body := map[string]string{
 		"userId": userID,
 	}
