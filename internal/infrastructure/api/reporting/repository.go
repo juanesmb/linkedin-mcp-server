@@ -141,25 +141,30 @@ func (r *Repository) GetAnalytics(ctx context.Context, input AnalyticsInput) (*A
 
 		element := AnalyticsElement{}
 
-		// Extract known fields
-		if dateRange, ok := elementMap["dateRange"].(map[string]interface{}); ok {
-			if start, ok := dateRange["start"].(map[string]interface{}); ok {
-				element.DateRange = &DateRange{
-					Start: Date{
-						Year:  int(start["year"].(float64)),
-						Month: int(start["month"].(float64)),
-						Day:   int(start["day"].(float64)),
-					},
+		// Extract dateRange. LinkedIn returns each bucket's date range as
+		// {start:{year,month,day}[, end:{...}]}. Use safe type assertions so a
+		// malformed payload never panics; if we see a dateRange key but fail
+		// to parse it, log a warning and surface whatever partial data we can.
+		if dateRangeRaw, exists := elementMap["dateRange"]; exists {
+			dateRange, ok := dateRangeRaw.(map[string]interface{})
+			if !ok {
+				r.logError(ctx, "linkedin returned dateRange with unexpected shape", map[string]string{
+					logTagMetric: strconv.Itoa(i),
+				})
+			} else {
+				if start, ok := parseDateObject(dateRange["start"]); ok {
+					element.DateRange = &DateRange{Start: start}
 				}
-			}
-			if end, ok := dateRange["end"].(map[string]interface{}); ok {
+				if end, ok := parseDateObject(dateRange["end"]); ok {
+					if element.DateRange == nil {
+						element.DateRange = &DateRange{}
+					}
+					element.DateRange.End = &end
+				}
 				if element.DateRange == nil {
-					element.DateRange = &DateRange{}
-				}
-				element.DateRange.End = &Date{
-					Year:  int(end["year"].(float64)),
-					Month: int(end["month"].(float64)),
-					Day:   int(end["day"].(float64)),
+					r.logError(ctx, "linkedin dateRange present but no valid start/end decoded", map[string]string{
+						logTagMetric: strconv.Itoa(i),
+					})
 				}
 			}
 		}
@@ -225,4 +230,41 @@ func (r *Repository) logError(ctx context.Context, message string, tags map[stri
 	}
 
 	r.logger.Error(ctx, message, tags)
+}
+
+// parseDateObject safely decodes a LinkedIn date payload of shape
+// {"year": N, "month": N, "day": N} into a Date. Returns (zero, false) if the
+// value is missing, not an object, or does not contain all three keys as
+// numbers. Using this helper instead of unchecked type assertions prevents the
+// response decoder from panicking on unexpected LinkedIn payload shapes.
+func parseDateObject(value interface{}) (Date, bool) {
+	raw, ok := value.(map[string]interface{})
+	if !ok {
+		return Date{}, false
+	}
+
+	year, okY := numericFieldAsInt(raw["year"])
+	month, okM := numericFieldAsInt(raw["month"])
+	day, okD := numericFieldAsInt(raw["day"])
+	if !okY || !okM || !okD {
+		return Date{}, false
+	}
+
+	return Date{Year: year, Month: month, Day: day}, true
+}
+
+// numericFieldAsInt coerces a JSON-decoded numeric value to an int. In practice
+// encoding/json only emits float64 into interface{}, but the other numeric
+// shapes are accepted for defensive robustness against upstream format changes.
+func numericFieldAsInt(value interface{}) (int, bool) {
+	switch typed := value.(type) {
+	case float64:
+		return int(typed), true
+	case int:
+		return typed, true
+	case int64:
+		return int(typed), true
+	default:
+		return 0, false
+	}
 }

@@ -72,7 +72,12 @@ func ParseLinkedInParamValidationResponse(response *api.Response) (*LinkedInPara
 	trimmedMessage := strings.TrimSpace(message)
 	if normalizedCode == "LINKEDIN_API_ERROR" {
 		lower := strings.ToLower(trimmedMessage)
-		if !strings.Contains(lower, "invalid query parameters") {
+		// Recognize known LinkedIn 400 shapes that are correctable from the client side:
+		//   - "Invalid query parameters passed to request"  (generic param-shape error)
+		//   - "Projected field '<name>' not present in schema '<AdAnalyticsV8>'"
+		//     (unknown field name — the client can retry with a valid field)
+		if !strings.Contains(lower, "invalid query parameters") &&
+			!strings.Contains(lower, "not present in schema") {
 			return nil, false
 		}
 	}

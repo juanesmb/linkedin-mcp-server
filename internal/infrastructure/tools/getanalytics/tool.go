@@ -28,7 +28,7 @@ func NewTool(repository *reporting.Repository, connectURL string) *Tool {
 func (t *Tool) GetAnalytics(ctx context.Context, req *mcp.CallToolRequest, input dto.Input) (*mcp.CallToolResult, dto.Output, error) {
 	result := &mcp.CallToolResult{}
 
-	normalizedInput, err := t.validateAndNormalizeInput(input)
+	normalizedInput, derivedFields, err := t.validateAndNormalizeInput(input)
 	if err != nil {
 		return result, dto.Output{}, fmt.Errorf("input validation failed: %w", err)
 	}
@@ -40,30 +40,40 @@ func (t *Tool) GetAnalytics(ctx context.Context, req *mcp.CallToolRequest, input
 		return result, dto.Output{}, toolerrors.WrapToolExecutionError("get analytics", err, t.connectURL)
 	}
 
+	// LinkedIn does not expose ratio metrics (CPC, CTR, CPL, CPM, video
+	// completion rate) in its AdAnalytics schema, so we compute them from the
+	// raw fields we requested on the caller's behalf.
+	injectDerivedMetrics(analyticsResult, derivedFields)
+
 	output := t.convertOutput(analyticsResult)
 
 	return result, output, nil
 }
 
-func (t *Tool) validateAndNormalizeInput(input dto.Input) (dto.Input, error) {
+// validateAndNormalizeInput validates the raw tool input, splits the requested
+// fields into raw LinkedIn fields and server-computed derived metrics, and
+// unions the derived metrics' required raw fields into the outbound request.
+// The returned slice of derived field names is used after the LinkedIn call
+// to compute and inject the derived values into each response element.
+func (t *Tool) validateAndNormalizeInput(input dto.Input) (dto.Input, []string, error) {
 	// Validate AccountID
 	if input.AccountID == "" {
-		return dto.Input{}, fmt.Errorf("accountID is required")
+		return dto.Input{}, nil, fmt.Errorf("accountID is required")
 	}
 	input.AccountID = strings.TrimSpace(input.AccountID)
 	if input.AccountID == "" {
-		return dto.Input{}, fmt.Errorf("accountID cannot be empty or whitespace only")
+		return dto.Input{}, nil, fmt.Errorf("accountID cannot be empty or whitespace only")
 	}
 
 	// Validate required fields
 	if input.DateRangeStart.Year == 0 {
-		return dto.Input{}, fmt.Errorf("dateRangeStart is required")
+		return dto.Input{}, nil, fmt.Errorf("dateRangeStart is required")
 	}
 	if input.TimeGranularity == "" {
-		return dto.Input{}, fmt.Errorf("timeGranularity is required")
+		return dto.Input{}, nil, fmt.Errorf("timeGranularity is required")
 	}
 	if len(input.Fields) == 0 {
-		return dto.Input{}, fmt.Errorf("fields is required and cannot be empty")
+		return dto.Input{}, nil, fmt.Errorf("fields is required and cannot be empty")
 	}
 
 	// Validate time granularity
@@ -74,7 +84,7 @@ func (t *Tool) validateAndNormalizeInput(input dto.Input) (dto.Input, error) {
 		"YEARLY":  true,
 	}
 	if !validGranularities[input.TimeGranularity] {
-		return dto.Input{}, fmt.Errorf("invalid timeGranularity: %s. Must be one of: ALL, DAILY, MONTHLY, YEARLY", input.TimeGranularity)
+		return dto.Input{}, nil, fmt.Errorf("invalid timeGranularity: %s. Must be one of: ALL, DAILY, MONTHLY, YEARLY", input.TimeGranularity)
 	}
 
 	// Validate pivot values
@@ -103,7 +113,7 @@ func (t *Tool) validateAndNormalizeInput(input dto.Input) (dto.Input, error) {
 		"EVENT_STAGE":                    true,
 	}
 	if input.Pivot != "" && !validPivots[input.Pivot] {
-		return dto.Input{}, fmt.Errorf("invalid pivot: %s", input.Pivot)
+		return dto.Input{}, nil, fmt.Errorf("invalid pivot: %s", input.Pivot)
 	}
 
 	// Validate campaign type
@@ -114,7 +124,7 @@ func (t *Tool) validateAndNormalizeInput(input dto.Input) (dto.Input, error) {
 		"DYNAMIC":           true,
 	}
 	if input.CampaignType != "" && !validCampaignTypes[input.CampaignType] {
-		return dto.Input{}, fmt.Errorf("invalid campaignType: %s. Must be one of: TEXT_AD, SPONSORED_UPDATES, SPONSORED_INMAILS, DYNAMIC", input.CampaignType)
+		return dto.Input{}, nil, fmt.Errorf("invalid campaignType: %s. Must be one of: TEXT_AD, SPONSORED_UPDATES, SPONSORED_INMAILS, DYNAMIC", input.CampaignType)
 	}
 
 	// Validate sort fields
@@ -128,12 +138,19 @@ func (t *Tool) validateAndNormalizeInput(input dto.Input) (dto.Input, error) {
 		"EXTERNAL_WEBSITE_CONVERSIONS": true,
 	}
 	if input.SortByField != "" && !validSortFields[input.SortByField] {
-		return dto.Input{}, fmt.Errorf("invalid sortByField: %s", input.SortByField)
+		return dto.Input{}, nil, fmt.Errorf("invalid sortByField: %s", input.SortByField)
 	}
 
 	// Validate sort order
 	if input.SortByOrder != "" && input.SortByOrder != "ASCENDING" && input.SortByOrder != "DESCENDING" {
-		return dto.Input{}, fmt.Errorf("sortByOrder must be either ASCENDING or DESCENDING")
+		return dto.Input{}, nil, fmt.Errorf("sortByOrder must be either ASCENDING or DESCENDING")
+	}
+
+	// LinkedIn requires both field and order together as a RestLi tuple. Half-specified
+	// sortBy is always rejected upstream, so fail fast with an actionable message instead
+	// of forwarding a broken request.
+	if (input.SortByField != "") != (input.SortByOrder != "") {
+		return dto.Input{}, nil, fmt.Errorf("sortByField and sortByOrder must be provided together; supply both or omit both")
 	}
 
 	// Validate date range
@@ -141,7 +158,7 @@ func (t *Tool) validateAndNormalizeInput(input dto.Input) (dto.Input, error) {
 		if input.DateRangeEnd.Year < input.DateRangeStart.Year ||
 			(input.DateRangeEnd.Year == input.DateRangeStart.Year && input.DateRangeEnd.Month < input.DateRangeStart.Month) ||
 			(input.DateRangeEnd.Year == input.DateRangeStart.Year && input.DateRangeEnd.Month == input.DateRangeStart.Month && input.DateRangeEnd.Day < input.DateRangeStart.Day) {
-			return dto.Input{}, fmt.Errorf("dateRangeEnd must be after dateRangeStart")
+			return dto.Input{}, nil, fmt.Errorf("dateRangeEnd must be after dateRangeStart")
 		}
 	}
 
@@ -164,23 +181,57 @@ func (t *Tool) validateAndNormalizeInput(input dto.Input) (dto.Input, error) {
 		input.Companies[i] = strings.TrimSpace(company)
 	}
 
-	// Normalize field names to camelCase (LinkedIn API format)
-	normalizedFields := make([]string, 0, len(input.Fields))
-	for _, field := range input.Fields {
-		normalized := t.normalizeFieldName(strings.TrimSpace(field))
-		if normalized != "" {
-			normalizedFields = append(normalizedFields, normalized)
+	// Split requested fields into:
+	//   - rawFields: LinkedIn schema fields (passed through untouched so LinkedIn
+	//     remains the schema source of truth — no allowlist).
+	//   - derivedFields: ratio/computed metrics (CPC, CTR, CPL, CPM, video
+	//     completion rate) we calculate from raw fields after the response.
+	// For each derived field we union its required raw dependencies into the
+	// outbound request, deduplicated against the raw fields the caller already
+	// asked for.
+	rawFieldSeen := map[string]struct{}{}
+	derivedSeen := map[string]struct{}{}
+	rawFields := make([]string, 0, len(input.Fields))
+	derivedFields := make([]string, 0)
+
+	addRawField := func(field string) {
+		if field == "" {
+			return
 		}
-		// Note: Fields that normalize to empty string (like CLICK_THRU_RATE, CTR, CPA)
-		// are filtered out as they are calculated metrics, not direct API fields
+		if _, exists := rawFieldSeen[field]; exists {
+			return
+		}
+		rawFieldSeen[field] = struct{}{}
+		rawFields = append(rawFields, field)
 	}
 
-	if len(normalizedFields) == 0 {
-		return dto.Input{}, fmt.Errorf("no valid fields after normalization")
+	for _, field := range input.Fields {
+		trimmed := strings.TrimSpace(field)
+		if trimmed == "" {
+			continue
+		}
+		if metric, ok := lookupDerivedMetric(trimmed); ok {
+			if _, exists := derivedSeen[metric.Name]; !exists {
+				derivedSeen[metric.Name] = struct{}{}
+				derivedFields = append(derivedFields, metric.Name)
+			}
+			for _, required := range metric.RequiredFields {
+				addRawField(required)
+			}
+			continue
+		}
+		addRawField(t.normalizeFieldName(trimmed))
 	}
 
-	input.Fields = normalizedFields
-	return input, nil
+	if len(rawFields) == 0 && len(derivedFields) == 0 {
+		return dto.Input{}, nil, fmt.Errorf("no valid fields after normalization")
+	}
+
+	// Even when the caller only asked for derived metrics, LinkedIn still
+	// requires at least one raw field in the request; the addRawField path
+	// above guarantees that because every derived metric declares raw deps.
+	input.Fields = rawFields
+	return input, derivedFields, nil
 }
 
 func (t *Tool) convertInput(input dto.Input) reporting.AnalyticsInput {
@@ -248,21 +299,20 @@ func (t *Tool) normalizeFieldName(field string) string {
 		return ""
 	}
 
-	// Handle common aliases first
+	// Handle common aliases for raw LinkedIn schema fields. Derived metrics
+	// (CPC, CTR, CPL, CPM, video completion rate) are handled separately via
+	// lookupDerivedMetric in the caller and must not appear here.
 	aliases := map[string]string{
-		"CONVERSIONS":             "externalWebsiteConversions",
-		"SPEND_IN_LOCAL_CURRENCY": "costInLocalCurrency",
-		"SPEND":                   "costInLocalCurrency",
-		"COST":                    "costInLocalCurrency",
-		"LEADS":                   "oneClickLeads",
-		"ONE_CLICK_LEAD_FORM_OPENS": "oneClickLeadFormOpens",
-		"UNIQUE_IMPRESSIONS":      "approximateMemberReach",
+		"CONVERSIONS":                    "externalWebsiteConversions",
+		"SPEND_IN_LOCAL_CURRENCY":        "costInLocalCurrency",
+		"SPEND":                          "costInLocalCurrency",
+		"COST":                           "costInLocalCurrency",
+		"LEADS":                          "oneClickLeads",
+		"ONE_CLICK_LEAD_FORM_OPENS":      "oneClickLeadFormOpens",
+		"UNIQUE_IMPRESSIONS":             "approximateMemberReach",
 		"APPROXIMATE_UNIQUE_IMPRESSIONS": "approximateMemberReach",
-		"TOTAL_ENGAGEMENTS":       "totalEngagements",
-		"ENGAGEMENTS":             "totalEngagements",
-		"CLICK_THRU_RATE":         "", // Not a direct field, would need calculation
-		"CTR":                     "", // Not a direct field, would need calculation
-		"CPA":                     "", // Not a direct field, would need calculation
+		"TOTAL_ENGAGEMENTS":              "totalEngagements",
+		"ENGAGEMENTS":                    "totalEngagements",
 	}
 
 	if alias, ok := aliases[strings.ToUpper(field)]; ok {
@@ -328,4 +378,37 @@ func (t *Tool) convertDateRange(dateRange *reporting.DateRange) *dto.DateRange {
 		}
 	}
 	return dr
+}
+
+// injectDerivedMetrics computes the requested derived metrics for each
+// element in the analytics result and writes them into element.Metrics under
+// their canonical lowerCamelCase name. Values are emitted as nil when the
+// computation is undefined (missing dependency or zero denominator), so the
+// MCP client can distinguish "unavailable" from "zero".
+func injectDerivedMetrics(result *reporting.AnalyticsResult, derivedFields []string) {
+	if result == nil || len(derivedFields) == 0 {
+		return
+	}
+
+	for i := range result.Elements {
+		metrics := result.Elements[i].Metrics
+		if metrics == nil {
+			metrics = map[string]interface{}{}
+		}
+
+		for _, name := range derivedFields {
+			metric, ok := derivedMetrics[name]
+			if !ok {
+				continue
+			}
+			value, defined := metric.Compute(metrics)
+			if !defined {
+				metrics[metric.Name] = nil
+				continue
+			}
+			metrics[metric.Name] = value
+		}
+
+		result.Elements[i].Metrics = metrics
+	}
 }

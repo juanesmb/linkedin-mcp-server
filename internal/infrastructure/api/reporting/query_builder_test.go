@@ -22,7 +22,7 @@ func TestBuildAnalyticsQuery_DoesNotInjectPivotValuesWithoutPivot(t *testing.T) 
 	}
 }
 
-func TestBuildAnalyticsQuery_DoesNotInjectPivotValuesWithPivot(t *testing.T) {
+func TestBuildAnalyticsQuery_InjectsPivotValuesWhenPivotSet(t *testing.T) {
 	qb := NewQueryBuilder("https://api.linkedin.com/rest")
 
 	query := qb.BuildAnalyticsQuery(AnalyticsInput{
@@ -35,8 +35,82 @@ func TestBuildAnalyticsQuery_DoesNotInjectPivotValuesWithPivot(t *testing.T) {
 		Fields:          []string{"impressions", "clicks"},
 	})
 
-	if strings.Contains(query, "pivotValues") {
-		t.Fatalf("expected no implicit pivotValues injection, got query: %s", query)
+	if !strings.Contains(query, "pivotValues") {
+		t.Fatalf("expected pivotValues projection when pivot is set, got query: %s", query)
+	}
+	// Must stay in the fields projection, not appear as a standalone query parameter.
+	if strings.Contains(query, "&pivotValues=") || strings.Contains(query, "?pivotValues=") {
+		t.Fatalf("pivotValues must be injected into fields, not as its own param: %s", query)
+	}
+}
+
+func TestBuildAnalyticsQuery_InjectsDateRangeWhenTimeGranularityBucketed(t *testing.T) {
+	qb := NewQueryBuilder("https://api.linkedin.com/rest")
+
+	for _, granularity := range []string{"DAILY", "MONTHLY", "YEARLY"} {
+		query := qb.BuildAnalyticsQuery(AnalyticsInput{
+			AccountID: "512247261",
+			DateRange: DateRange{
+				Start: Date{Year: 2025, Month: 1, Day: 1},
+				End:   &Date{Year: 2025, Month: 1, Day: 7},
+			},
+			TimeGranularity: granularity,
+			Fields:          []string{"impressions", "clicks"},
+		})
+
+		if !strings.Contains(query, "fields=impressions,clicks,dateRange") {
+			t.Fatalf("expected dateRange appended to fields projection for %s, got: %s", granularity, query)
+		}
+	}
+}
+
+func TestBuildAnalyticsQuery_DoesNotInjectDateRangeForAllGranularity(t *testing.T) {
+	qb := NewQueryBuilder("https://api.linkedin.com/rest")
+
+	query := qb.BuildAnalyticsQuery(AnalyticsInput{
+		AccountID: "512247261",
+		DateRange: DateRange{
+			Start: Date{Year: 2025, Month: 1, Day: 1},
+		},
+		TimeGranularity: "ALL",
+		Fields:          []string{"impressions", "clicks"},
+	})
+
+	// `dateRange=` as a request filter must be present, but the fields projection
+	// must not include it (ALL returns a single aggregate with no per-bucket metadata).
+	fieldsPart := ""
+	for _, p := range strings.Split(query, "&") {
+		if strings.HasPrefix(p, "fields=") {
+			fieldsPart = p
+		}
+	}
+	if fieldsPart == "" {
+		t.Fatalf("expected fields= param, got: %s", query)
+	}
+	if strings.Contains(fieldsPart, "dateRange") {
+		t.Fatalf("expected no dateRange in fields projection for ALL granularity, got: %s", fieldsPart)
+	}
+}
+
+func TestBuildAnalyticsQuery_DoesNotDuplicateMetadataWhenCallerSupplied(t *testing.T) {
+	qb := NewQueryBuilder("https://api.linkedin.com/rest")
+
+	query := qb.BuildAnalyticsQuery(AnalyticsInput{
+		AccountID: "512247261",
+		Pivot:     "CAMPAIGN",
+		DateRange: DateRange{
+			Start: Date{Year: 2025, Month: 1, Day: 1},
+			End:   &Date{Year: 2025, Month: 3, Day: 31},
+		},
+		TimeGranularity: "MONTHLY",
+		Fields:          []string{"impressions", "dateRange", "pivotValues", "clicks"},
+	})
+
+	if strings.Count(query, "dateRange,") > 1 || strings.Count(query, ",dateRange") > 1 {
+		t.Fatalf("expected dateRange deduplicated in fields projection, got: %s", query)
+	}
+	if strings.Count(query, "pivotValues") != 1 {
+		t.Fatalf("expected pivotValues deduplicated, got: %s", query)
 	}
 }
 
@@ -122,6 +196,69 @@ func TestBuildAnalyticsQuery_UsesRestLiListFormattingForFacets(t *testing.T) {
 	}
 	if strings.Contains(query, "accounts=List(urn:li:sponsoredAccount:") || strings.Contains(query, "campaigns=List(urn:li:sponsoredCampaign:") {
 		t.Fatalf("expected encoded URNs inside RestLi lists, got query: %s", query)
+	}
+}
+
+func TestBuildAnalyticsQuery_SortBySerializedAsSingleRestLiTuple(t *testing.T) {
+	qb := NewQueryBuilder("https://api.linkedin.com/rest")
+
+	query := qb.BuildAnalyticsQuery(AnalyticsInput{
+		AccountID: "512247261",
+		DateRange: DateRange{
+			Start: Date{Year: 2025, Month: 1, Day: 1},
+		},
+		TimeGranularity: "ALL",
+		SortBy:          SortBy{Field: "IMPRESSIONS", Order: "DESCENDING"},
+		Fields:          []string{"impressions"},
+	})
+
+	expected := "sortBy=(field:IMPRESSIONS,order:DESCENDING)"
+	if !strings.Contains(query, expected) {
+		t.Fatalf("expected single RestLi sortBy tuple %q, got: %s", expected, query)
+	}
+	if strings.Count(query, "sortBy=") != 1 {
+		t.Fatalf("expected exactly one sortBy param, got: %s", query)
+	}
+}
+
+func TestBuildAnalyticsQuery_SortByOmittedWhenEmpty(t *testing.T) {
+	qb := NewQueryBuilder("https://api.linkedin.com/rest")
+
+	query := qb.BuildAnalyticsQuery(AnalyticsInput{
+		AccountID: "512247261",
+		DateRange: DateRange{
+			Start: Date{Year: 2025, Month: 1, Day: 1},
+		},
+		TimeGranularity: "ALL",
+		Fields:          []string{"impressions"},
+	})
+
+	if strings.Contains(query, "sortBy=") {
+		t.Fatalf("expected no sortBy param when both field and order are empty, got: %s", query)
+	}
+}
+
+func TestBuildAnalyticsQuery_SortByWithOnlyFieldStillEmitsSingleParam(t *testing.T) {
+	// Defense-in-depth: the tool validator rejects half-specified sortBy, but the builder
+	// should still emit a single well-formed param rather than two separate ones.
+	qb := NewQueryBuilder("https://api.linkedin.com/rest")
+
+	query := qb.BuildAnalyticsQuery(AnalyticsInput{
+		AccountID: "512247261",
+		DateRange: DateRange{
+			Start: Date{Year: 2025, Month: 1, Day: 1},
+		},
+		TimeGranularity: "ALL",
+		SortBy:          SortBy{Field: "IMPRESSIONS"},
+		Fields:          []string{"impressions"},
+	})
+
+	expected := "sortBy=(field:IMPRESSIONS)"
+	if !strings.Contains(query, expected) {
+		t.Fatalf("expected field-only sortBy tuple %q, got: %s", expected, query)
+	}
+	if strings.Count(query, "sortBy=") != 1 {
+		t.Fatalf("expected exactly one sortBy param, got: %s", query)
 	}
 }
 

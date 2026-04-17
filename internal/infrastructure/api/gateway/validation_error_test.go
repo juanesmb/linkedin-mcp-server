@@ -52,3 +52,32 @@ func TestParseLinkedInParamValidationResponse_GenericInvalidQueryParameters(t *t
 	require.Contains(t, validationErr.Message, "req_123")
 	require.Equal(t, 400, validationErr.ProviderStatus)
 }
+
+func TestParseLinkedInParamValidationResponse_UnknownProjectedField(t *testing.T) {
+	response := &api.Response{
+		StatusCode: 400,
+		Body: []byte(`{
+			"code":"LINKEDIN_API_ERROR",
+			"message":"Projected field 'costPerClick' not present in schema 'com.linkedin.adsexternalapi.reportingapi.v8.AdAnalyticsV8'",
+			"request_id":"req_456"
+		}`),
+	}
+
+	validationErr, ok := ParseLinkedInParamValidationResponse(response)
+	require.True(t, ok)
+	require.Contains(t, validationErr.Message, "not present in schema")
+	require.Contains(t, validationErr.Message, "costPerClick")
+	require.Contains(t, validationErr.Message, "req_456")
+	require.Equal(t, 400, validationErr.ProviderStatus)
+}
+
+func TestParseLinkedInParamValidationResponse_GenericAPIErrorWithoutKnownMessageIsIgnored(t *testing.T) {
+	response := &api.Response{
+		StatusCode: 400,
+		Body:       []byte(`{"code":"LINKEDIN_API_ERROR","message":"Some other upstream failure"}`),
+	}
+
+	validationErr, ok := ParseLinkedInParamValidationResponse(response)
+	require.False(t, ok)
+	require.Nil(t, validationErr)
+}
