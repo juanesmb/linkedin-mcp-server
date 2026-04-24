@@ -12,13 +12,13 @@ func TestNormalizeFieldName_MapsV8Aliases(t *testing.T) {
 	tool := &Tool{}
 
 	cases := map[string]string{
-		"SPEND":                         "costInLocalCurrency",
-		"COST":                          "costInLocalCurrency",
-		"CONVERSIONS":                   "externalWebsiteConversions",
-		"LEADS":                         "oneClickLeads",
-		"UNIQUE_IMPRESSIONS":            "approximateMemberReach",
+		"SPEND":                          "costInLocalCurrency",
+		"COST":                           "costInLocalCurrency",
+		"CONVERSIONS":                    "externalWebsiteConversions",
+		"LEADS":                          "oneClickLeads",
+		"UNIQUE_IMPRESSIONS":             "approximateMemberReach",
 		"APPROXIMATE_UNIQUE_IMPRESSIONS": "approximateMemberReach",
-		"ENGAGEMENTS":                   "totalEngagements",
+		"ENGAGEMENTS":                    "totalEngagements",
 	}
 
 	for input, expected := range cases {

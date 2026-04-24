@@ -1,10 +1,9 @@
-package campaigns
+package creatives
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"strconv"
 	"strings"
 
@@ -27,9 +26,6 @@ const (
 	errFmtLinkedInAPIErrorPlain = "linkedin api error: status %d, body: %s"
 	errFmtLinkedInAPIError      = "linkedin api error: status %d"
 	errFmtDecodeResponse        = "failed to decode response: %w"
-
-	pagingNextKey       = "next"
-	queryParamPageToken = "pageToken"
 )
 
 type Logger interface {
@@ -50,8 +46,8 @@ func NewRepository(gatewayClient *gateway.Client, queryBuilder *QueryBuilder, lo
 	}
 }
 
-func (r *Repository) SearchCampaigns(ctx context.Context, input SearchInput) (*SearchResult, error) {
-	requestURL := r.queryBuilder.BuildSearchCampaignsQuery(input)
+func (r *Repository) SearchCreatives(ctx context.Context, input SearchInput) (*SearchResult, error) {
+	requestURL := r.queryBuilder.BuildSearchCreativesByCampaignsQuery(input)
 	resourcePath, query, err := gateway.ParseLinkedInRESTProxyTarget(requestURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build gateway proxy target: %w", err)
@@ -72,7 +68,10 @@ func (r *Repository) SearchCampaigns(ctx context.Context, input SearchInput) (*S
 		return nil, fmt.Errorf("failed to fetch LinkedIn connection state from gateway: status %d", connectionResponse.StatusCode)
 	}
 
-	response, err := r.gatewayClient.ProxyLinkedInOrRefresh(ctx, userID, resourcePath, query, nil)
+	// LinkedIn Rest.li creatives criteria finder expects X-RestLi-Method: FINDER (see Microsoft Learn).
+	response, err := r.gatewayClient.ProxyLinkedInOrRefresh(ctx, userID, resourcePath, query, map[string]string{
+		"X-RestLi-Method": "FINDER",
+	})
 	if err != nil {
 		r.logError(ctx, logMessageFailedRequest, map[string]string{
 			logTagURL:   requestURL,
@@ -104,15 +103,14 @@ func (r *Repository) SearchCampaigns(ctx context.Context, input SearchInput) (*S
 			return nil, fmt.Errorf(errFmtLinkedInAPIErrorJSON, response.StatusCode, errBody)
 		}
 
-		trimmedBody := strings.TrimSpace(string(response.Body))
-		if trimmedBody != "" {
-			return nil, fmt.Errorf(errFmtLinkedInAPIErrorPlain, response.StatusCode, trimmedBody)
+		if bodyString != "" {
+			return nil, fmt.Errorf(errFmtLinkedInAPIErrorPlain, response.StatusCode, bodyString)
 		}
 
 		return nil, fmt.Errorf(errFmtLinkedInAPIError, response.StatusCode)
 	}
 
-	var liResp LinkedInResponse
+	var liResp LinkedInListResponse
 	if err := json.Unmarshal(response.Body, &liResp); err != nil {
 		r.logError(ctx, logMessageFailedDecodeResponse, map[string]string{
 			logTagURL:   requestURL,
@@ -121,25 +119,33 @@ func (r *Repository) SearchCampaigns(ctx context.Context, input SearchInput) (*S
 		return nil, fmt.Errorf(errFmtDecodeResponse, err)
 	}
 
-	result := &SearchResult{
-		Elements: liResp.Elements,
+	normalized := make([]NormalizedCreative, 0, len(liResp.Elements))
+	for _, el := range liResp.Elements {
+		normalized = append(normalized, NormalizeCreative(el))
 	}
 
-	if nextRaw, ok := liResp.Paging[pagingNextKey].(string); ok && nextRaw != "" {
-		if u, err := url.Parse(nextRaw); err == nil {
-			if token := u.Query().Get(queryParamPageToken); token != "" {
-				result.Metadata.NextPageToken = token
-			}
+	return &SearchResult{
+		Elements: normalized,
+		Paging:   summarizeCreativesPagination(liResp.Metadata, input.PageSize),
+	}, nil
+}
+
+func summarizeCreativesPagination(metadata map[string]any, requestedPageSize int) PagingSummary {
+	out := PagingSummary{}
+	if requestedPageSize > 0 {
+		out.PageSize = requestedPageSize
+	}
+	if metadata != nil {
+		if v, ok := metadata["nextPageToken"].(string); ok {
+			out.NextPageToken = v
 		}
 	}
-
-	return result, nil
+	return out
 }
 
 func (r *Repository) logError(ctx context.Context, message string, tags map[string]string) {
 	if r.logger == nil {
 		return
 	}
-
 	r.logger.Error(ctx, message, tags)
 }

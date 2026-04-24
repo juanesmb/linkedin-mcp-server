@@ -42,15 +42,15 @@ type Logger interface {
 
 type Repository struct {
 	gatewayClient *gateway.Client
-	queryBuilder *QueryBuilder
-	logger       Logger
+	queryBuilder  *QueryBuilder
+	logger        Logger
 }
 
 func NewRepository(gatewayClient *gateway.Client, queryBuilder *QueryBuilder, logger Logger) *Repository {
 	return &Repository{
 		gatewayClient: gatewayClient,
-		queryBuilder: queryBuilder,
-		logger:       logger,
+		queryBuilder:  queryBuilder,
+		logger:        logger,
 	}
 }
 
@@ -76,7 +76,7 @@ func (r *Repository) GetAnalytics(ctx context.Context, input AnalyticsInput) (*A
 		return nil, fmt.Errorf("failed to fetch LinkedIn connection state from gateway: status %d", connectionResponse.StatusCode)
 	}
 
-	response, err := r.gatewayClient.ProxyLinkedInOrRefresh(ctx, userID, resourcePath, query)
+	response, err := r.gatewayClient.ProxyLinkedInOrRefresh(ctx, userID, resourcePath, query, nil)
 	if err != nil {
 		r.logError(ctx, logMessageFailedRequest, map[string]string{
 			logTagURL:   requestURL,

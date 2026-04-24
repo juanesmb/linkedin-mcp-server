@@ -8,6 +8,7 @@ import (
 	"linkedin-mcp/internal/infrastructure/api"
 	adaccountsapi "linkedin-mcp/internal/infrastructure/api/adaccounts"
 	"linkedin-mcp/internal/infrastructure/api/campaigns"
+	creativesapi "linkedin-mcp/internal/infrastructure/api/creatives"
 	"linkedin-mcp/internal/infrastructure/api/gateway"
 	reportingapi "linkedin-mcp/internal/infrastructure/api/reporting"
 	"linkedin-mcp/internal/infrastructure/http"
@@ -18,6 +19,7 @@ import (
 	"linkedin-mcp/internal/infrastructure/tools/getanalytics"
 	"linkedin-mcp/internal/infrastructure/tools/searchadaccounts"
 	"linkedin-mcp/internal/infrastructure/tools/searchcampaigns"
+	"linkedin-mcp/internal/infrastructure/tools/searchcreatives"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -26,9 +28,9 @@ import (
 var serverInstructions string
 
 type Components struct {
-	httpClient     api.Client
-	gatewayClient  *gateway.Client
-	logger         infrastructurelog.Logger
+	httpClient    api.Client
+	gatewayClient *gateway.Client
+	logger        infrastructurelog.Logger
 }
 
 func initServer(configs Configs, components Components) *mcp.Server {
@@ -52,6 +54,10 @@ func initServer(configs Configs, components Components) *mcp.Server {
 		Name:        "get_analytics",
 		Description: "Get LinkedIn ad analytics data. Requires accountID and should be used after reading analytics resources.",
 	}, initReportingTool(configs, components).GetAnalytics)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "search_creatives",
+		Description: "List ad creatives for a campaign with normalized metadata (IDs, status, format; headline and landing URL when the API returns them, e.g. not for content-reference-only creatives). Requires accountID and campaignID or campaignURN.",
+	}, initSearchCreativesTool(configs, components).SearchCreatives)
 
 	analyticsResource := initAnalyticsResource()
 	server.AddResource(&mcp.Resource{
@@ -101,6 +107,12 @@ func initReportingTool(configs Configs, components Components) *getanalytics.Too
 	reportingRepository := reportingapi.NewRepository(components.gatewayClient, queryBuilder, components.logger)
 
 	return getanalytics.NewTool(reportingRepository, configs.GatewayConfig.ConnectURL)
+}
+
+func initSearchCreativesTool(configs Configs, components Components) *searchcreatives.Tool {
+	queryBuilder := creativesapi.NewQueryBuilder(configs.LinkedInConfigs.BaseURL)
+	repository := creativesapi.NewRepository(components.gatewayClient, queryBuilder, components.logger)
+	return searchcreatives.NewTool(repository, configs.GatewayConfig.ConnectURL)
 }
 
 func initAnalyticsResource() *queryparameters.Resource {

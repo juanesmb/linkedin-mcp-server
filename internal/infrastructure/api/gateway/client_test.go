@@ -30,9 +30,34 @@ func TestProxyLinkedIn_SendsSecretAndUserContext(t *testing.T) {
 	client := NewClient(customhttp.NewClient(nil), server.URL, "super-secret")
 	_, err := client.ProxyLinkedIn(context.Background(), "user_123", "adAccounts", map[string]string{
 		"q": "search",
-	})
+	}, nil)
 
 	require.NoError(t, err)
 	require.Equal(t, "super-secret", gotSecret)
 	require.Equal(t, "user_123", gotBody["userId"])
+	_, hasHeaders := gotBody["headers"]
+	require.False(t, hasHeaders)
+}
+
+func TestProxyLinkedIn_IncludesHeadersInBodyWhenNonEmpty(t *testing.T) {
+	var gotBody map[string]interface{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &gotBody)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(customhttp.NewClient(nil), server.URL, "super-secret")
+	_, err := client.ProxyLinkedIn(context.Background(), "user_123", "adAccounts/1/creatives", map[string]string{
+		"q": "criteria",
+	}, map[string]string{"X-RestLi-Method": "FINDER"})
+
+	require.NoError(t, err)
+	raw, ok := gotBody["headers"].(map[string]interface{})
+	require.True(t, ok)
+	require.Equal(t, "FINDER", raw["X-RestLi-Method"])
 }
